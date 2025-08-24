@@ -5,6 +5,7 @@ import plotly.express as px
 from datetime import datetime, timedelta
 import json
 import sys
+import os
 from pathlib import Path
 
 # Add project root to path if not already there
@@ -25,8 +26,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# API Configuration
-API_BASE = "http://localhost:8003/api"
+# API Configuration - Support proxy environments
+PROXY_BASE_PATH = os.getenv("PROXY_BASE_PATH", "")
+if PROXY_BASE_PATH:
+    # In proxy mode, use relative paths that will work with the proxy
+    API_BASE = f"{PROXY_BASE_PATH}/api"
+else:
+    # Standard mode
+    API_BASE = "http://localhost:8003/api"
 
 @st.cache_data(ttl=30)
 def fetch_data(endpoint):

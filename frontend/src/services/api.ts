@@ -1,14 +1,46 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
 import { Agent, Workflow, Activity, MCPTool } from '../types';
+import { getApiBaseUrl } from '../utils/apiConfig';
 
-const API_BASE = process.env.REACT_APP_API_URL || '/api';
+// Create axios instance with dynamic base URL
+let api: AxiosInstance;
 
-const api = axios.create({
-  baseURL: API_BASE,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+// Function to initialize or reinitialize the API client
+const initializeApi = () => {
+  const baseURL = getApiBaseUrl();
+  
+  api = axios.create({
+    baseURL,
+    headers: {
+      'Content-Type': 'application/json',
+    },
+  });
+
+  // Add request interceptor for debugging
+  if (process.env.NODE_ENV === 'development') {
+    api.interceptors.request.use(
+      (config) => {
+        console.log('API Request:', config.method?.toUpperCase(), config.url);
+        return config;
+      },
+      (error) => {
+        console.error('API Request Error:', error);
+        return Promise.reject(error);
+      }
+    );
+  }
+
+  return api;
+};
+
+// Initialize on module load
+api = initializeApi();
+
+// Export function to reinitialize if needed
+export const reinitializeApi = () => {
+  api = initializeApi();
+  return api;
+};
 
 // Agent API
 export const listAgents = async (): Promise<Agent[]> => {

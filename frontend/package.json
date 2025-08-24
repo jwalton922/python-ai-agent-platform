@@ -18,9 +18,11 @@
     "autoprefixer": "^10.4.0",
     "postcss": "^8.4.0"
   },
+  "homepage": "/app",
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
+    "build:subfolder": "PUBLIC_URL=/app react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"
   },
@@ -45,7 +47,8 @@
   "devDependencies": {
     "@testing-library/jest-dom": "^5.16.0",
     "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0"
+    "@testing-library/user-event": "^13.5.0",
+    "http-proxy-middleware": "^2.0.6"
   },
   "proxy": "http://localhost:8000"
 }

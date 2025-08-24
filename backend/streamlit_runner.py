@@ -13,9 +13,10 @@ logger = logging.getLogger(__name__)
 class StreamlitRunner:
     """Manages the Streamlit app as a subprocess"""
     
-    def __init__(self, streamlit_script: str = "streamlit_dashboard.py", port: int = 8501):
+    def __init__(self, streamlit_script: str = "streamlit_dashboard.py", port: int = 8501, proxy_base_path: Optional[str] = None):
         self.streamlit_script = streamlit_script
         self.port = port
+        self.proxy_base_path = proxy_base_path
         self.process: Optional[subprocess.Popen] = None
         self.thread: Optional[threading.Thread] = None
         self.is_running = False
@@ -82,9 +83,19 @@ class StreamlitRunner:
                 "--server.enableXsrfProtection", "false"
             ]
             
+            # Add base path configuration if in proxy mode
+            if self.proxy_base_path:
+                cmd.extend([
+                    "--server.baseUrlPath", f"{self.proxy_base_path}/streamlit"
+                ])
+            
             # Set environment to ensure backend API is accessible
             env = os.environ.copy()
             env["STREAMLIT_SERVER_PORT"] = str(self.port)
+            
+            # Pass proxy base path to Streamlit app
+            if self.proxy_base_path:
+                env["PROXY_BASE_PATH"] = self.proxy_base_path
             
             logger.info(f"Starting Streamlit with command: {' '.join(cmd)}")
             

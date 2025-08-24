@@ -5,6 +5,11 @@ import { ActivityMonitor } from './components/ActivityMonitor';
 import { AgentChat } from './components/AgentChat';
 import { Navigation } from './components/Navigation';
 
+// Import test utility in development
+if (process.env.NODE_ENV === 'development') {
+  import('./utils/testApiConfig');
+}
+
 type View = 'agents' | 'workflows' | 'activity' | 'chat';
 
 function App() {
