@@ -104,6 +104,25 @@ export const executeToolAction = async (
   return response.data;
 };
 
+// Chat API
+export const chatWithAgent = async (
+  agentId: string,
+  message: string,
+  chatHistory: Array<{ role: string; content: string }> = []
+): Promise<{
+  message: string;
+  tool_calls: any[];
+  success: boolean;
+  error?: string;
+}> => {
+  const response = await api.post('/chat/', {
+    agent_id: agentId,
+    message: message,
+    chat_history: chatHistory
+  });
+  return response.data;
+};
+
 // Health check
 export const healthCheck = async (): Promise<{ status: string }> => {
   const response = await api.get('/health');
