@@ -7,8 +7,14 @@ Runs FastAPI backend with integrated Streamlit and React frontend
 import os
 import sys
 import logging
-import uvicorn
 from pathlib import Path
+
+# Add the project root to Python path FIRST
+project_root = Path(__file__).parent.absolute()
+sys.path.insert(0, str(project_root))
+
+# Now we can import uvicorn after path is set
+import uvicorn
 
 # Setup logging
 logging.basicConfig(
@@ -39,7 +45,7 @@ def main():
         logger.info("⚠️ React frontend not built - will be unavailable")
     
     # Set environment variables
-    os.environ["PYTHONPATH"] = str(Path(__file__).parent)
+    os.environ["PYTHONPATH"] = str(project_root)
     
     # Server configuration
     host = os.getenv("HOST", "0.0.0.0")

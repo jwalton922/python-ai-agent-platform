@@ -4,6 +4,14 @@ import pandas as pd
 import plotly.express as px
 from datetime import datetime, timedelta
 import json
+import sys
+from pathlib import Path
+
+# Add project root to path if not already there
+project_root = Path(__file__).parent.absolute()
+if str(project_root) not in sys.path:
+    sys.path.insert(0, str(project_root))
+
 from streamlit_components.react_components import activity_monitor
 from streamlit_components.backend_integrated_workflow import workflow_editor_integrated
 from streamlit_components.backend_integrated_agents import agent_builder_integrated
