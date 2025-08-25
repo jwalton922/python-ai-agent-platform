@@ -1,0 +1,370 @@
+{
+  "id": "file-email-workflow",
+  "name": "File and Email Processing Workflow", 
+  "description": "Reads text files and emails their contents",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "file_reader",
+      "type": "agent",
+      "name": "File Reader Agent",
+      "description": "Reads and processes text files",
+      "position": {"x": 100, "y": 150},
+      "agent_id": "file-agent",
+      "instructions_override": "You are a file processing agent. Read all text files in the specified directory and extract their contents. Return a JSON object with file names as keys and file contents as values.",
+      "instructions_append": "Focus on .txt, .md, and .log files. If a file is too large, provide a summary of the first 1000 characters.",
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": null,
+      "validation_schema": null,
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 60000,
+        "retry": {
+          "max_attempts": 3,
+          "delay_ms": 1000,
+          "strategy": "exponential"
+        },
+        "error_handling": "retry",
+        "token_limits": {
+          "max_tokens": 2000,
+          "max_cost": 0.20
+        },
+        "cache_results": true,
+        "cache_ttl_seconds": 3600,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": null,
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [
+        {
+          "source": "${global.directory_path}",
+          "target": "directory"
+        },
+        {
+          "source": "${global.file_extensions}",
+          "target": "extensions"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "file_contents",
+          "target": "files_data"
+        },
+        {
+          "source": "file_count",
+          "target": "total_files"
+        }
+      ],
+      "tags": ["file-processing"],
+      "metadata": {
+        "category": "data-input",
+        "priority": "high"
+      }
+    },
+    {
+      "id": "content_formatter",
+      "type": "transform",
+      "name": "Content Formatter",
+      "description": "Formats file contents for email",
+      "position": {"x": 350, "y": 150},
+      "agent_id": null,
+      "instructions_override": null,
+      "instructions_append": null,
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": [
+        {
+          "field": "email_body",
+          "operation": "SET",
+          "value": "File Analysis Report\n===================\n\nTotal Files Processed: ${file_reader.total_files}\n\nFile Contents:\n${file_reader.files_data}"
+        },
+        {
+          "field": "email_subject",
+          "operation": "SET", 
+          "value": "File Analysis Report - ${global.report_date}"
+        }
+      ],
+      "validation_schema": {
+        "type": "object",
+        "properties": {
+          "email_body": {"type": "string", "minLength": 10},
+          "email_subject": {"type": "string", "minLength": 5}
+        },
+        "required": ["email_body", "email_subject"]
+      },
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 10000,
+        "retry": null,
+        "error_handling": "fail",
+        "token_limits": null,
+        "cache_results": false,
+        "cache_ttl_seconds": null,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": {
+          "allow_partial_failure": false,
+          "validate_output": true
+        },
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [],
+      "output_mapping": [
+        {
+          "source": "email_body",
+          "target": "formatted_content"
+        },
+        {
+          "source": "email_subject", 
+          "target": "email_title"
+        }
+      ],
+      "tags": ["formatting"],
+      "metadata": {}
+    },
+    {
+      "id": "email_sender",
+      "type": "agent",
+      "name": "Email Sender Agent",
+      "description": "Sends formatted content via email",
+      "position": {"x": 600, "y": 150},
+      "agent_id": "email-agent",
+      "instructions_override": "You are an email sending agent. Send an email with the provided subject and body to the specified recipient. Use professional formatting and ensure the email is properly structured.",
+      "instructions_append": "Always confirm successful delivery and include timestamp information.",
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": null,
+      "validation_schema": null,
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 45000,
+        "retry": {
+          "max_attempts": 2,
+          "delay_ms": 5000,
+          "strategy": "linear"
+        },
+        "error_handling": "retry",
+        "token_limits": {
+          "max_tokens": 1000,
+          "max_cost": 0.15
+        },
+        "cache_results": false,
+        "cache_ttl_seconds": null,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": null,
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [
+        {
+          "source": "${content_formatter.email_title}",
+          "target": "subject"
+        },
+        {
+          "source": "${content_formatter.formatted_content}",
+          "target": "body"
+        },
+        {
+          "source": "${global.recipient_email}",
+          "target": "to_address"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "delivery_status",
+          "target": "email_sent"
+        },
+        {
+          "source": "message_id",
+          "target": "email_id"
+        }
+      ],
+      "tags": ["email", "communication"],
+      "metadata": {
+        "category": "output",
+        "service": "email"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "files_to_formatter",
+      "source_node_id": "file_reader",
+      "target_node_id": "content_formatter",
+      "condition": null,
+      "priority": 0,
+      "data_mapping": [
+        {
+          "source": "files_data",
+          "target": "file_contents"
+        },
+        {
+          "source": "total_files",
+          "target": "file_count"
+        }
+      ],
+      "data_filter": null,
+      "data_transform": null,
+      "label": "File Data Flow",
+      "metadata": {}
+    },
+    {
+      "id": "formatter_to_email",
+      "source_node_id": "content_formatter", 
+      "target_node_id": "email_sender",
+      "condition": "${content_formatter.email_body} != null",
+      "priority": 0,
+      "data_mapping": [
+        {
+          "source": "formatted_content",
+          "target": "email_body"
+        },
+        {
+          "source": "email_title",
+          "target": "email_subject"
+        }
+      ],
+      "data_filter": null,
+      "data_transform": null,
+      "label": "Content to Email",
+      "metadata": {}
+    }
+  ],
+  "variables": [
+    {
+      "name": "directory_path",
+      "type": "string",
+      "required": true,
+      "default": null,
+      "description": "Path to the directory containing files to process",
+      "validation": {
+        "minLength": 1,
+        "pattern": "^[a-zA-Z0-9/._-]+$"
+      },
+      "scope": "global"
+    },
+    {
+      "name": "file_extensions",
+      "type": "array",
+      "required": false,
+      "default": [".txt", ".md", ".log"],
+      "description": "File extensions to process",
+      "validation": {
+        "minItems": 1,
+        "items": {
+          "type": "string"
+        }
+      },
+      "scope": "global"
+    },
+    {
+      "name": "recipient_email",
+      "type": "string",
+      "required": true,
+      "default": null,
+      "description": "Email address to send the report to",
+      "validation": {
+        "pattern": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$"
+      },
+      "scope": "global"
+    },
+    {
+      "name": "report_date",
+      "type": "string",
+      "required": false,
+      "default": "$(date +%Y-%m-%d)",
+      "description": "Date for the report",
+      "validation": null,
+      "scope": "global"
+    }
+  ],
+  "execution_mode": "sequential",
+  "trigger_conditions": [],
+  "trigger_config": {},
+  "global_error_handler": null,
+  "error_handling_strategy": "retry_then_fail",
+  "max_retries": 3,
+  "settings": {
+    "max_execution_time_ms": 300000,
+    "max_total_tokens": 5000,
+    "max_parallel_executions": 1,
+    "priority": "medium",
+    "max_memory_mb": 256,
+    "max_api_calls": 10,
+    "rate_limit_per_minute": 60,
+    "continue_on_error": false,
+    "save_intermediate_state": true,
+    "enable_checkpoints": true,
+    "checkpoint_interval_ms": 60000,
+    "max_cost_usd": 1.00,
+    "cost_warning_threshold": 0.8
+  },
+  "monitoring": {
+    "log_level": "info",
+    "trace_sampling": 0.2,
+    "metrics_enabled": true,
+    "capture_inputs": true,
+    "capture_outputs": true,
+    "capture_intermediate": true,
+    "alert_channels": ["email"],
+    "sla_ms": 180000,
+    "error_rate_threshold": 0.05
+  },
+  "testing": null,
+  "status": "idle",
+  "tags": ["file-processing", "email", "automation", "example"],
+  "metadata": {
+    "created_by": "workflow-builder",
+    "use_case": "file-email-automation",
+    "complexity": "medium"
+  },
+  "parent_workflow_id": null,
+  "child_workflow_ids": []
+}

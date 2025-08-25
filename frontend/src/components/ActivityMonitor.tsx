@@ -72,8 +72,52 @@ export const ActivityMonitor: React.FC = () => {
   const renderToolInputParams = (activity: Activity) => {
     if (activity.type !== 'tool_invocation') return null;
     
-    const inputParams = activity.data?.all_input_params || activity.data?.params;
-    if (!inputParams || Object.keys(inputParams).length === 0) return null;
+    let inputParams = activity.data?.all_input_params || activity.data?.params;
+    if (!inputParams) return null;
+    
+    // Handle legacy string format - if params is a string, try to parse it or display it as-is
+    if (typeof inputParams === 'string') {
+      // Try to parse if it looks like a Python dict or JSON
+      if (inputParams.startsWith('{') && inputParams.includes(':')) {
+        try {
+          // Try JSON first
+          inputParams = JSON.parse(inputParams);
+        } catch {
+          try {
+            // Try converting Python dict-like string to JSON
+            const jsonString = inputParams
+              .replace(/'/g, '"')  // Replace single quotes with double quotes
+              .replace(/True/g, 'true')
+              .replace(/False/g, 'false')
+              .replace(/None/g, 'null');
+            inputParams = JSON.parse(jsonString);
+          } catch {
+            // If all parsing fails, display the raw string
+            return (
+              <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <h4 className="text-sm font-medium text-blue-900 mb-2">🔧 MCP Tool Input (Raw)</h4>
+                <div className="text-xs text-blue-700 bg-white p-2 rounded border break-all">
+                  {inputParams}
+                </div>
+              </div>
+            );
+          }
+        }
+      } else {
+        // Simple string, display as-is
+        return (
+          <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <h4 className="text-sm font-medium text-blue-900 mb-2">🔧 MCP Tool Input</h4>
+            <div className="text-xs text-blue-700 bg-white p-2 rounded border break-all">
+              {inputParams}
+            </div>
+          </div>
+        );
+      }
+    }
+    
+    // Now inputParams should be an object, check if it has keys
+    if (!inputParams || typeof inputParams !== 'object' || Object.keys(inputParams).length === 0) return null;
 
     return (
       <div className="mt-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
@@ -126,8 +170,28 @@ export const ActivityMonitor: React.FC = () => {
   const renderToolResult = (activity: Activity) => {
     if (activity.type !== 'tool_invocation') return null;
     
-    const result = activity.data?.execution_result || activity.data?.result;
+    let result = activity.data?.execution_result || activity.data?.result;
     if (!result) return null;
+    
+    // Handle legacy string format for results
+    if (typeof result === 'string' && result.startsWith('{') && result.includes(':')) {
+      try {
+        // Try JSON first
+        result = JSON.parse(result);
+      } catch {
+        try {
+          // Try converting Python dict-like string to JSON
+          const jsonString = result
+            .replace(/'/g, '"')
+            .replace(/True/g, 'true')
+            .replace(/False/g, 'false')
+            .replace(/None/g, 'null');
+          result = JSON.parse(jsonString);
+        } catch {
+          // Keep as string if parsing fails
+        }
+      }
+    }
 
     return (
       <div className="mt-3 bg-green-50 border border-green-200 rounded-lg p-3">

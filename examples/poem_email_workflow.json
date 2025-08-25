@@ -1,0 +1,221 @@
+{
+  "id": "poem-email-workflow",
+  "name": "Poem Generation and Email Workflow",
+  "description": "Generate a poem and send it via email",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "poem_generator_node",
+      "type": "agent",
+      "name": "Poem Generator",
+      "description": "Agent that generates poems",
+      "position": {"x": 100, "y": 100},
+      "agent_id": "8bb72460-0221-4d9c-874b-0c2c241e0a00",
+      "instructions_override": null,
+      "instructions_append": "You are a creative poet. Generate a beautiful poem based on the given topic. Make it thoughtful and engaging with good rhythm and rhyme.",
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": null,
+      "validation_schema": null,
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 60000,
+        "retry": null,
+        "error_handling": "fail",
+        "token_limits": {
+          "max_tokens": 2000,
+          "max_cost": 0.30,
+          "warn_at_percentage": 0.8
+        },
+        "cache_results": false,
+        "cache_ttl_seconds": null,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": null,
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [
+        {
+          "source": "${global.poem_topic}",
+          "target": "topic",
+          "transform": null,
+          "default": "nature"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "output",
+          "target": "poem",
+          "transform": null,
+          "default": null
+        }
+      ],
+      "tags": ["poetry", "creative"],
+      "metadata": {}
+    },
+    {
+      "id": "email_sender_node", 
+      "type": "agent",
+      "name": "Email Sender",
+      "description": "Agent that sends emails",
+      "position": {"x": 400, "y": 100},
+      "agent_id": "a214418f-9621-4c25-ac4a-c5e9d0f4a46a",
+      "instructions_override": null,
+      "instructions_append": "You are an email assistant. Send an email with the poem content. Use 'A Beautiful Poem for You' as the subject line. Format the email nicely with the poem in the body.",
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": null,
+      "validation_schema": null,
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 45000,
+        "retry": null,
+        "error_handling": "fail",
+        "token_limits": {
+          "max_tokens": 1500,
+          "max_cost": 0.25,
+          "warn_at_percentage": 0.8
+        },
+        "cache_results": false,
+        "cache_ttl_seconds": null,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": null,
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [
+        {
+          "source": "${nodes.poem_generator_node.poem}",
+          "target": "poem_content",
+          "transform": null,
+          "default": "Generated poem will appear here"
+        },
+        {
+          "source": "${global.recipient_email}",
+          "target": "to_email",
+          "transform": null,
+          "default": "josh.walton@capitalone.com"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "output",
+          "target": "email_result",
+          "transform": null,
+          "default": null
+        }
+      ],
+      "tags": ["email", "communication"],
+      "metadata": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "poem_to_email_edge",
+      "source_node_id": "poem_generator_node",
+      "target_node_id": "email_sender_node",
+      "condition": null,
+      "priority": 0,
+      "data_mapping": [
+        {
+          "source": "poem",
+          "target": "poem_content",
+          "transform": null,
+          "default": null
+        }
+      ],
+      "data_filter": null,
+      "data_transform": null,
+      "label": "Pass poem to email",
+      "metadata": {}
+    }
+  ],
+  "variables": [
+    {
+      "name": "poem_topic",
+      "type": "string",
+      "required": true,
+      "default": "nature",
+      "description": "Topic for the poem generation",
+      "validation": null,
+      "scope": "global"
+    },
+    {
+      "name": "recipient_email", 
+      "type": "string",
+      "required": false,
+      "default": "josh.walton@capitalone.com",
+      "description": "Email address to send the poem to",
+      "validation": null,
+      "scope": "global"
+    }
+  ],
+  "execution_mode": "sequential",
+  "trigger_conditions": [],
+  "trigger_config": {},
+  "global_error_handler": null,
+  "error_handling_strategy": "retry_then_fail",
+  "max_retries": 2,
+  "settings": {
+    "max_execution_time_ms": 180000,
+    "max_total_tokens": 3500,
+    "max_parallel_executions": 1,
+    "priority": "medium",
+    "max_memory_mb": null,
+    "max_api_calls": null,
+    "rate_limit_per_minute": null,
+    "continue_on_error": false,
+    "save_intermediate_state": true,
+    "enable_checkpoints": false,
+    "checkpoint_interval_ms": 30000,
+    "max_cost_usd": 1.0,
+    "cost_warning_threshold": 0.8
+  },
+  "monitoring": {
+    "log_level": "info",
+    "trace_sampling": 0.1,
+    "metrics_enabled": true,
+    "capture_inputs": true,
+    "capture_outputs": true,
+    "capture_intermediate": false,
+    "alert_channels": [],
+    "sla_ms": 120000,
+    "error_rate_threshold": 0.1
+  },
+  "testing": null,
+  "status": "idle",
+  "tags": ["poetry", "email", "two-agent"],
+  "metadata": {},
+  "parent_workflow_id": null,
+  "child_workflow_ids": []
+}

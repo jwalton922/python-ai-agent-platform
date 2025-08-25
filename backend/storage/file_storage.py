@@ -1,11 +1,13 @@
 import json
 import os
+import traceback
 from pathlib import Path
 from typing import Dict, List, Optional, Any
 from datetime import datetime
 import uuid
 from backend.models.agent import Agent, AgentCreate, AgentUpdate
 from backend.models.workflow import Workflow, WorkflowCreate, WorkflowUpdate
+from backend.models.workflow_enhanced import EnhancedWorkflow, WorkflowExecutionState
 from backend.models.activity import Activity, ActivityCreate
 from backend.models.mcp_tool import MCPToolAction
 
@@ -17,6 +19,8 @@ class FileStorage:
         self.data_dir = Path(data_dir)
         self.agents_dir = self.data_dir / "agents"
         self.workflows_dir = self.data_dir / "workflows"
+        self.enhanced_workflows_dir = self.data_dir / "enhanced_workflows"
+        self.executions_dir = self.data_dir / "executions"
         self.activities_file = self.data_dir / "activities.json"
         self.tool_actions_file = self.data_dir / "tool_actions.json"
         
@@ -31,6 +35,8 @@ class FileStorage:
         self.data_dir.mkdir(exist_ok=True)
         self.agents_dir.mkdir(exist_ok=True)
         self.workflows_dir.mkdir(exist_ok=True)
+        self.enhanced_workflows_dir.mkdir(exist_ok=True)
+        self.executions_dir.mkdir(exist_ok=True)
         
         # Create empty files if they don't exist
         if not self.activities_file.exists():
@@ -261,6 +267,191 @@ class FileStorage:
         # Convert to MCPToolAction objects and reverse to show newest first
         actions = [MCPToolAction(**data) for data in recent_actions]
         return list(reversed(actions))
+    
+    # Enhanced workflow operations
+    def create_enhanced_workflow(self, workflow: EnhancedWorkflow) -> EnhancedWorkflow:
+        """Create a new enhanced workflow"""
+        if not workflow.id:
+            workflow.id = str(uuid.uuid4())
+        
+        # Set timestamps
+        workflow.created_at = datetime.utcnow()
+        
+        # Save to file
+        file_path = self.enhanced_workflows_dir / f"{workflow.id}.json"
+        workflow_data = workflow.model_dump()
+        
+        # Convert datetime objects to strings for JSON serialization
+        workflow_data = self._serialize_datetime(workflow_data)
+        
+        self._write_json(file_path, workflow_data)
+        return workflow
+    
+    def get_enhanced_workflow(self, workflow_id: str) -> Optional[EnhancedWorkflow]:
+        """Get enhanced workflow by ID"""
+        file_path = self.enhanced_workflows_dir / f"{workflow_id}.json"
+        if not file_path.exists():
+            return None
+        
+        try:
+            data = self._read_json(file_path)
+            # Convert datetime strings back to datetime objects
+            data = self._deserialize_datetime(data, ['created_at', 'updated_at'])
+            return EnhancedWorkflow(**data)
+        except Exception as e:
+            print(f"Error loading enhanced workflow {workflow_id}: {e}")
+            traceback.print_exc()
+            return None
+    
+    def update_enhanced_workflow(
+        self,
+        workflow_id: str,
+        updates: Dict[str, Any]
+    ) -> Optional[EnhancedWorkflow]:
+        """Update enhanced workflow"""
+        workflow = self.get_enhanced_workflow(workflow_id)
+        if not workflow:
+            return None
+        
+        # Apply updates
+        for key, value in updates.items():
+            if hasattr(workflow, key):
+                setattr(workflow, key, value)
+        
+        workflow.updated_at = datetime.utcnow()
+        
+        # Save updated workflow
+        return self.create_enhanced_workflow(workflow)
+    
+    def delete_enhanced_workflow(self, workflow_id: str) -> bool:
+        """Delete enhanced workflow"""
+        file_path = self.enhanced_workflows_dir / f"{workflow_id}.json"
+        if file_path.exists():
+            file_path.unlink()
+            return True
+        return False
+    
+    def list_enhanced_workflows(self) -> List[EnhancedWorkflow]:
+        """List all enhanced workflows"""
+        workflows = []
+        for file_path in self.enhanced_workflows_dir.glob("*.json"):
+            try:
+                data = self._read_json(file_path)
+                data = self._deserialize_datetime(data, ['created_at', 'updated_at'])
+                workflow = EnhancedWorkflow(**data)
+                workflows.append(workflow)
+            except Exception as e:
+                print(f"Error loading workflow from {file_path}: {e}")
+                traceback.print_exc()
+                continue
+        
+        return workflows
+    
+    # Workflow execution operations
+    def create_workflow_execution(self, execution: WorkflowExecutionState) -> WorkflowExecutionState:
+        """Create workflow execution record"""
+        if not execution.execution_id:
+            execution.execution_id = str(uuid.uuid4())
+        
+        file_path = self.executions_dir / f"{execution.execution_id}.json"
+        execution_data = execution.model_dump()
+        execution_data = self._serialize_datetime(execution_data)
+        
+        self._write_json(file_path, execution_data)
+        return execution
+    
+    def get_workflow_execution(self, execution_id: str) -> Optional[WorkflowExecutionState]:
+        """Get workflow execution by ID"""
+        file_path = self.executions_dir / f"{execution_id}.json"
+        if not file_path.exists():
+            return None
+        
+        try:
+            data = self._read_json(file_path)
+            data = self._deserialize_datetime(data, ['started_at', 'completed_at', 'last_checkpoint'])
+            return WorkflowExecutionState(**data)
+        except Exception as e:
+            print(f"Error loading execution {execution_id}: {e}")
+            traceback.print_exc()
+            return None
+    
+    def update_workflow_execution(
+        self,
+        execution_id: str,
+        updates: Dict[str, Any]
+    ) -> Optional[WorkflowExecutionState]:
+        """Update workflow execution"""
+        execution = self.get_workflow_execution(execution_id)
+        if not execution:
+            return None
+        
+        for key, value in updates.items():
+            if hasattr(execution, key):
+                setattr(execution, key, value)
+        
+        return self.create_workflow_execution(execution)
+    
+    def list_workflow_executions(
+        self,
+        workflow_id: Optional[str] = None,
+        limit: int = 100
+    ) -> List[WorkflowExecutionState]:
+        """List workflow executions"""
+        executions = []
+        count = 0
+        
+        # Sort by modification time (newest first)
+        files = sorted(
+            self.executions_dir.glob("*.json"),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True
+        )
+        
+        for file_path in files:
+            if count >= limit:
+                break
+            
+            try:
+                data = self._read_json(file_path)
+                
+                # Filter by workflow_id if specified
+                if workflow_id and data.get("workflow_id") != workflow_id:
+                    continue
+                
+                data = self._deserialize_datetime(data, ['started_at', 'completed_at', 'last_checkpoint'])
+                execution = WorkflowExecutionState(**data)
+                executions.append(execution)
+                count += 1
+            except Exception as e:
+                print(f"Error loading execution from {file_path}: {e}")
+                traceback.print_exc()
+                continue
+        
+        return executions
+    
+    # Helper methods for datetime serialization
+    def _serialize_datetime(self, data: Any) -> Any:
+        """Convert datetime objects to ISO strings for JSON serialization"""
+        if isinstance(data, datetime):
+            return data.isoformat()
+        elif isinstance(data, dict):
+            return {key: self._serialize_datetime(value) for key, value in data.items()}
+        elif isinstance(data, list):
+            return [self._serialize_datetime(item) for item in data]
+        else:
+            return data
+    
+    def _deserialize_datetime(self, data: Dict[str, Any], fields: List[str]) -> Dict[str, Any]:
+        """Convert ISO string fields back to datetime objects"""
+        for field in fields:
+            if field in data and data[field] and isinstance(data[field], str):
+                try:
+                    data[field] = datetime.fromisoformat(data[field])
+                except Exception as e:
+                    print(f"Failed to parse datetime field {field}: {e}")
+                    traceback.print_exc()
+                    pass  # Leave as string if conversion fails
+        return data
 
 
 # Create a global file storage instance

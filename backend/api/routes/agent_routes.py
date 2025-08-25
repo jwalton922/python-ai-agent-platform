@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+import traceback
 from fastapi import APIRouter, HTTPException, status
 from backend.models.agent import Agent, AgentCreate, AgentUpdate
 from backend.models.activity import ActivityCreate, ActivityType
@@ -72,6 +73,8 @@ async def create_agent(agent_data: AgentCreate) -> Agent:
         return agent
     except Exception as e:
         # Log agent creation failure
+        print(f"Failed to create agent: {e}")
+        traceback.print_exc()
         await _log_activity(
             ActivityType.AGENT_CREATION,
             title=f"Failed to create agent",

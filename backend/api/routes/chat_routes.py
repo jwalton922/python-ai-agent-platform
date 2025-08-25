@@ -1,4 +1,5 @@
 from typing import Dict, Any, List
+import traceback
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from backend.storage.file_storage import file_storage as storage
@@ -121,6 +122,8 @@ async def chat_with_agent(request: ChatRequest) -> ChatResponse:
         
     except Exception as e:
         # Log chat failure with comprehensive error details
+        print(f"Chat with agent failed: {e}")
+        traceback.print_exc()
         await _log_activity(
             ActivityType.AGENT_EXECUTION,
             agent_id=request.agent_id if request else "unknown",
@@ -269,6 +272,8 @@ async def _execute_tool_calls(response: str, available_tools, agent_id: str) -> 
             
         except Exception as e:
             # Log comprehensive tool failure with all inputs
+            print(f"Tool invocation failed: {e}")
+            traceback.print_exc()
             await _log_activity(
                 ActivityType.TOOL_INVOCATION,
                 agent_id=agent_id,

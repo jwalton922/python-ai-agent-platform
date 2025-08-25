@@ -1,4 +1,5 @@
 from typing import List, Dict, Any
+import traceback
 from fastapi import APIRouter, HTTPException, status
 from backend.models.mcp_tool import MCPTool, MCPToolAction
 from backend.models.activity import ActivityCreate, ActivityType
@@ -123,6 +124,8 @@ async def execute_tool_action(
         
     except Exception as e:
         # Log comprehensive tool failure with all inputs
+        print(f"MCP tool execution failed: {e}")
+        traceback.print_exc()
         await _log_activity(
             ActivityType.TOOL_INVOCATION,
             agent_id=agent_id,
