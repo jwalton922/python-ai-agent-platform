@@ -9,6 +9,7 @@ interface Message {
   timestamp: Date;
   toolCalls?: ToolCall[];
   error?: string;
+  workflowGenerated?: any;
 }
 
 interface ToolCall {
@@ -107,7 +108,8 @@ export const AgentChat: React.FC = () => {
           role: 'assistant',
           content: response.message,
           timestamp: new Date(),
-          toolCalls: response.tool_calls
+          toolCalls: response.tool_calls,
+          workflowGenerated: response.workflow_generated
         };
 
         setSessions({
@@ -357,6 +359,39 @@ export const AgentChat: React.FC = () => {
                       </div>
                     )}
 
+                    {/* Generated Workflow Display */}
+                    {message.workflowGenerated && (
+                      <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className="text-purple-600">⚡</span>
+                            <span className="font-medium text-sm text-purple-900">
+                              Workflow Generated: {message.workflowGenerated.name}
+                            </span>
+                          </div>
+                          <button
+                            onClick={() => {
+                              // Open workflow editor with the generated workflow
+                              window.location.href = `/workflow/${message.workflowGenerated.id}`;
+                            }}
+                            className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
+                          >
+                            View Workflow
+                          </button>
+                        </div>
+                        {message.workflowGenerated.description && (
+                          <p className="text-sm text-gray-700 mb-2">
+                            {message.workflowGenerated.description}
+                          </p>
+                        )}
+                        <div className="flex items-center space-x-4 text-xs text-gray-600">
+                          <span>{message.workflowGenerated.nodes?.length || 0} nodes</span>
+                          <span>{message.workflowGenerated.edges?.length || 0} connections</span>
+                          <span>{message.workflowGenerated.variables?.length || 0} variables</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Timestamp */}
                     <div className="mt-1 text-xs text-gray-500">
                       {message.timestamp.toLocaleTimeString()}
@@ -453,6 +488,12 @@ export const AgentChat: React.FC = () => {
               className="text-xs px-2 py-1 bg-gray-100 hover:bg-gray-200 rounded-full text-gray-700 transition-colors"
             >
               👋 Say hello
+            </button>
+            <button
+              onClick={() => setInputMessage('Create a workflow that reads emails and sends summaries')}
+              className="text-xs px-2 py-1 bg-purple-100 hover:bg-purple-200 rounded-full text-purple-700 transition-colors"
+            >
+              ⚡ Create workflow
             </button>
           </div>
         )}

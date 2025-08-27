@@ -3,6 +3,7 @@ from backend.models.mcp_tool import MockMCPTool, MCPTool
 from backend.mcp.tools.email_tool import EmailTool
 from backend.mcp.tools.slack_tool import SlackTool
 from backend.mcp.tools.file_tool import FileTool
+from backend.mcp.tools.workflow_tool import WorkflowTool
 
 
 class ToolRegistry:
@@ -18,6 +19,7 @@ class ToolRegistry:
             EmailTool(),
             SlackTool(),
             FileTool(),
+            WorkflowTool(),
         ]
         
         for tool in tools:

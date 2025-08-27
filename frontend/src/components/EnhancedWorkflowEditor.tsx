@@ -375,7 +375,7 @@ export const EnhancedWorkflowEditor: React.FC = () => {
 
   const loadWorkflows = async () => {
     try {
-      const response = await fetch('/api/workflows-enhanced/');
+      const response = await fetch('/api/workflows/enhanced/');
       const workflowList = await response.json();
       setWorkflows(workflowList);
     } catch (error) {
@@ -541,7 +541,7 @@ export const EnhancedWorkflowEditor: React.FC = () => {
         tags: currentWorkflow.tags || ['enhanced', 'visual-editor']
       };
 
-      const response = await fetch('/api/workflows-enhanced/', {
+      const response = await fetch('/api/workflows/enhanced/', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -583,7 +583,7 @@ export const EnhancedWorkflowEditor: React.FC = () => {
         dry_run: false
       };
 
-      const response = await fetch(`/api/workflows-enhanced/${currentWorkflow.id}/execute`, {
+      const response = await fetch(`/api/workflows/enhanced/${currentWorkflow.id}/execute`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -610,7 +610,7 @@ export const EnhancedWorkflowEditor: React.FC = () => {
 
   const loadWorkflow = async (workflowId: string) => {
     try {
-      const response = await fetch(`/api/workflows-enhanced/${workflowId}`);
+      const response = await fetch(`/api/workflows/enhanced/${workflowId}`);
       if (response.ok) {
         const workflow = await response.json();
         setCurrentWorkflow(workflow);
@@ -686,7 +686,7 @@ export const EnhancedWorkflowEditor: React.FC = () => {
     }
 
     try {
-      const response = await fetch(`/api/workflows-enhanced/${workflowId}`, {
+      const response = await fetch(`/api/workflows/enhanced/${workflowId}`, {
         method: 'DELETE'
       });
 

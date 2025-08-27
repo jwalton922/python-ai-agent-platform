@@ -14,8 +14,13 @@ from backend.models.workflow_enhanced import (
 from backend.models.activity import ActivityCreate, ActivityType
 from backend.storage.file_storage import file_storage as storage
 from backend.workflow.executor_enhanced import enhanced_workflow_executor
+from backend.llm.factory import LLMFactory
+from backend.llm.base import LLMMessage, LLMRole
 import hashlib
 import time
+import json
+import re
+import uuid
 
 router = APIRouter()
 
@@ -394,6 +399,216 @@ async def cancel_workflow_execution(execution_id: str) -> Dict[str, str]:
         status_code=status.HTTP_404_NOT_FOUND,
         detail=f"Execution {execution_id} not found or already completed"
     )
+
+
+@router.post("/generate")
+async def generate_workflow(request: Dict[str, Any]) -> EnhancedWorkflow:
+    """Generate a workflow from natural language instructions"""
+    
+    instructions = request.get("instructions")
+    if not instructions:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Instructions are required"
+        )
+    
+    agent_id = request.get("agent_id")
+    use_available_agents = request.get("use_available_agents", False)
+    
+    try:
+        # Get available agents if requested
+        available_agents = []
+        if use_available_agents:
+            agents = storage.list_agents()
+            available_agents = [
+                {
+                    "id": agent.id,
+                    "name": agent.name,
+                    "description": agent.description,
+                    "capabilities": agent.mcp_tool_permissions
+                }
+                for agent in agents
+            ]
+        
+        # Generate workflow using LLM
+        llm_provider = LLMFactory.create_provider()
+        
+        # Create prompt
+        agents_info = ""
+        if available_agents:
+            agents_list = "\n".join([
+                f"- {agent['name']} (ID: {agent['id']}): {agent.get('description', 'No description')}"
+                for agent in available_agents
+            ])
+            agents_info = f"\nAvailable agents for the workflow:\n{agents_list}"
+        
+        prompt = f"""Generate a detailed workflow structure based on the following instructions:
+
+Instructions: {instructions}
+{agents_info}
+
+Please provide a JSON structure with the following format:
+{{
+    "name": "Workflow name",
+    "description": "Brief description",
+    "nodes": [
+        {{
+            "id": "unique_id",
+            "type": "agent|decision|transform|loop|parallel|storage|aggregator",
+            "name": "Node name",
+            "description": "Node description",
+            "agent_id": "agent_id (if type is agent)",
+            "instructions": "Specific instructions for this node",
+            "config": {{
+                "timeout_ms": 30000,
+                "error_handling": "fail|continue|fallback"
+            }}
+        }}
+    ],
+    "edges": [
+        {{
+            "source": "source_node_id",
+            "target": "target_node_id",
+            "condition": "optional condition"
+        }}
+    ],
+    "variables": [
+        {{
+            "name": "variable_name",
+            "type": "string|number|boolean|object|array",
+            "required": true,
+            "default": null,
+            "description": "Variable description"
+        }}
+    ]
+}}
+
+Generate a complete, valid workflow structure that accomplishes: {instructions}"""
+        
+        # Get LLM response
+        messages = [LLMMessage(role=LLMRole.USER, content=prompt)]
+        response = await llm_provider.generate(messages)
+        
+        # Parse response
+        workflow_data = None
+        try:
+            # Extract JSON from response
+            json_match = re.search(r'\{[\s\S]*\}', response.content)
+            if json_match:
+                workflow_data = json.loads(json_match.group(0))
+        except json.JSONDecodeError:
+            # Create simple fallback workflow
+            workflow_data = {
+                "name": "Generated Workflow",
+                "description": f"Workflow to: {instructions[:100]}",
+                "nodes": [
+                    {
+                        "id": "main_node",
+                        "type": "agent",
+                        "name": "Main Processing",
+                        "description": "Main workflow processing",
+                        "agent_id": agent_id if agent_id else None,
+                        "instructions": instructions
+                    }
+                ],
+                "edges": [],
+                "variables": [
+                    {
+                        "name": "input",
+                        "type": "object",
+                        "required": True,
+                        "description": "Workflow input"
+                    }
+                ]
+            }
+        
+        # Create workflow object
+        workflow_id = str(uuid.uuid4())
+        nodes = []
+        
+        for node_data in workflow_data.get("nodes", []):
+            node_type_str = node_data.get("type", "agent").lower()
+            node_type = {
+                "agent": NodeType.AGENT,
+                "decision": NodeType.DECISION,
+                "transform": NodeType.TRANSFORM,
+                "loop": NodeType.LOOP,
+                "parallel": NodeType.PARALLEL,
+                "storage": NodeType.STORAGE,
+                "aggregator": NodeType.AGGREGATOR
+            }.get(node_type_str, NodeType.AGENT)
+            
+            node = EnhancedWorkflowNode(
+                id=node_data.get("id", str(uuid.uuid4())),
+                type=node_type,
+                name=node_data.get("name", "Node"),
+                description=node_data.get("description"),
+                position={"x": 0, "y": 0},
+                agent_id=node_data.get("agent_id") if node_type == NodeType.AGENT else None,
+                instructions_override=node_data.get("instructions") if node_type == NodeType.AGENT else None
+            )
+            nodes.append(node)
+        
+        edges = []
+        for edge_data in workflow_data.get("edges", []):
+            edge = EnhancedWorkflowEdge(
+                id=str(uuid.uuid4()),
+                source_node_id=edge_data.get("source", ""),
+                target_node_id=edge_data.get("target", ""),
+                condition=edge_data.get("condition")
+            )
+            edges.append(edge)
+        
+        variables = []
+        for var_data in workflow_data.get("variables", []):
+            variable = WorkflowVariable(
+                name=var_data.get("name", "var"),
+                type=var_data.get("type", "string"),
+                required=var_data.get("required", False),
+                default=var_data.get("default"),
+                description=var_data.get("description")
+            )
+            variables.append(variable)
+        
+        # Create workflow
+        workflow = EnhancedWorkflow(
+            id=workflow_id,
+            name=workflow_data.get("name", "Generated Workflow"),
+            description=workflow_data.get("description", ""),
+            version="1.0.0",
+            nodes=nodes,
+            edges=edges,
+            variables=variables,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow()
+        )
+        
+        # Save workflow
+        saved_workflow = storage.create_enhanced_workflow(workflow)
+        
+        # Log activity
+        await _log_activity(
+            ActivityType.WORKFLOW_CREATION,
+            workflow_id=saved_workflow.id,
+            title=f"Generated workflow: {saved_workflow.name}",
+            description=f"Generated workflow from instructions",
+            data={
+                "workflow_name": saved_workflow.name,
+                "instructions": instructions[:200],
+                "node_count": len(nodes),
+                "generated_by": "ai_agent" if agent_id else "user"
+            }
+        )
+        
+        return saved_workflow
+        
+    except Exception as e:
+        print(f"Failed to generate workflow: {e}")
+        traceback.print_exc()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(e)
+        )
 
 
 @router.get("/{workflow_id}/debug")

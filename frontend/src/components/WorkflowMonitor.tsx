@@ -63,7 +63,7 @@ export const WorkflowMonitor: React.FC = () => {
 
   const loadExecutions = async () => {
     try {
-      const response = await fetch('/api/workflows-enhanced/executions?limit=50');
+      const response = await fetch('/api/workflows/enhanced/executions?limit=50');
       if (response.ok) {
         const data = await response.json();
         setExecutions(data);
@@ -78,14 +78,14 @@ export const WorkflowMonitor: React.FC = () => {
   const loadMetrics = async () => {
     try {
       // Load metrics for all workflows
-      const workflowsResponse = await fetch('/api/workflows-enhanced/');
+      const workflowsResponse = await fetch('/api/workflows/enhanced/');
       if (workflowsResponse.ok) {
         const workflows = await workflowsResponse.json();
         
         const metricsData: Record<string, WorkflowMetrics> = {};
         for (const workflow of workflows) {
           try {
-            const metricsResponse = await fetch(`/api/workflows-enhanced/${workflow.id}/metrics`);
+            const metricsResponse = await fetch(`/api/workflows/enhanced/${workflow.id}/metrics`);
             if (metricsResponse.ok) {
               const workflowMetrics = await metricsResponse.json();
               metricsData[workflow.id] = {
@@ -106,7 +106,7 @@ export const WorkflowMonitor: React.FC = () => {
 
   const cancelExecution = async (executionId: string) => {
     try {
-      const response = await fetch(`/api/workflows-enhanced/executions/${executionId}/cancel`, {
+      const response = await fetch(`/api/workflows/enhanced/executions/${executionId}/cancel`, {
         method: 'POST'
       });
       

@@ -21,7 +21,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(agent_routes.router, prefix="/api/agents", tags=["agents"])
 app.include_router(workflow_routes.router, prefix="/api/workflows", tags=["workflows"])
-app.include_router(workflow_routes_enhanced.router, prefix="/api/workflows-enhanced", tags=["enhanced-workflows"])
+app.include_router(workflow_routes_enhanced.router, prefix="/api/workflows/enhanced", tags=["enhanced-workflows"])
 app.include_router(mcp_routes.router, prefix="/api/mcp-tools", tags=["mcp-tools"])
 app.include_router(activity_routes.router, prefix="/api/activities", tags=["activities"])
 app.include_router(llm_routes.router, prefix="/api/llm", tags=["llm"])
