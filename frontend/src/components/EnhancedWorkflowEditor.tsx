@@ -327,7 +327,7 @@ export const EnhancedWorkflowEditor: React.FC = () => {
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [currentWorkflow, setCurrentWorkflow] = useState<any | null>(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [showNodePanel, setShowNodePanel] = useState(false);
+  const [showNodePanel, setShowNodePanel] = useState(true);
   const [executionResults, setExecutionResults] = useState<any>(null);
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [selectedEdge, setSelectedEdge] = useState<any>(null);
@@ -864,6 +864,15 @@ export const EnhancedWorkflowEditor: React.FC = () => {
           >
             {isExecuting ? 'Executing...' : 'Execute'}
           </button>
+          <button
+            onClick={() => setShowWorkflowModal(true)}
+            className="bg-gray-600 text-white px-3 py-1 rounded hover:bg-gray-700 flex items-center space-x-1"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+            <span>Manage ({workflows.length})</span>
+          </button>
         </div>
       </div>
 
@@ -890,17 +899,6 @@ export const EnhancedWorkflowEditor: React.FC = () => {
               ))}
             </div>
 
-            {/* Workflow Management */}
-            <h3 className="font-semibold mt-6 mb-4">Workflow Management</h3>
-            <button
-              onClick={() => setShowWorkflowModal(true)}
-              className="w-full p-3 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors flex items-center justify-center space-x-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <span>Manage Workflows ({workflows.length})</span>
-            </button>
           </div>
         )}
 
