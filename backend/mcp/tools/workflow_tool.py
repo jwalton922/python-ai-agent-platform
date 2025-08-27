@@ -25,6 +25,66 @@ from backend.models.base import TriggerType
 from backend.llm.factory import LLMFactory
 from backend.llm.base import LLMMessage, LLMRole
 import re
+import math
+from collections import defaultdict, deque
+
+
+def calculate_intelligent_layout(nodes_data: List[Dict], edges_data: List[Dict]) -> Dict[str, Dict[str, float]]:
+    """
+    Calculate intelligent positions for workflow nodes using a hierarchical layout algorithm.
+    Places nodes in layers based on their dependencies and spreads them horizontally to avoid overlap.
+    """
+    if not nodes_data:
+        return {}
+    
+    # Build adjacency lists
+    outgoing = defaultdict(list)  # node_id -> [target_node_ids]
+    incoming = defaultdict(list)  # node_id -> [source_node_ids] 
+    all_node_ids = {node["id"] for node in nodes_data}
+    
+    for edge in edges_data:
+        source = edge.get("source_node_id") or edge.get("source")
+        target = edge.get("target_node_id") or edge.get("target")
+        if source and target and source in all_node_ids and target in all_node_ids:
+            outgoing[source].append(target)
+            incoming[target].append(source)
+    
+    # Find root nodes (no incoming edges) and calculate layers using topological sort
+    layers = []
+    remaining_nodes = set(all_node_ids)
+    
+    while remaining_nodes:
+        # Find nodes with no remaining incoming edges
+        current_layer = []
+        for node_id in remaining_nodes:
+            if not any(src in remaining_nodes for src in incoming[node_id]):
+                current_layer.append(node_id)
+        
+        if not current_layer:
+            # Handle cycles by picking arbitrary remaining nodes
+            current_layer = [next(iter(remaining_nodes))]
+        
+        layers.append(current_layer)
+        remaining_nodes -= set(current_layer)
+    
+    # Calculate positions
+    positions = {}
+    layer_height = 150  # Vertical spacing between layers
+    node_width = 200   # Horizontal spacing between nodes
+    start_y = 50       # Top margin
+    
+    for layer_idx, layer_nodes in enumerate(layers):
+        y = start_y + layer_idx * layer_height
+        
+        # Center nodes horizontally in each layer
+        total_width = max(len(layer_nodes) - 1, 0) * node_width
+        start_x = -total_width / 2 + 300  # Offset to keep positive coordinates
+        
+        for node_idx, node_id in enumerate(layer_nodes):
+            x = start_x + node_idx * node_width
+            positions[node_id] = {"x": x, "y": y}
+    
+    return positions
 
 
 
@@ -337,9 +397,15 @@ Generate a complete, multi-node workflow structure that accomplishes: {instructi
         workflow_id = str(uuid.uuid4())
         print(f"🔧 Creating workflow ID: {workflow_id}")
         
+        # Calculate intelligent layout positions for nodes
+        node_data_list = data.get("nodes", [])
+        edge_data_list = data.get("edges", [])
+        
+        print(f"🎯 Calculating intelligent layout for {len(node_data_list)} nodes and {len(edge_data_list)} edges")
+        node_positions = calculate_intelligent_layout(node_data_list, edge_data_list)
+        
         # Create nodes
         nodes = []
-        node_data_list = data.get("nodes", [])
         print(f"🔧 Processing {len(node_data_list)} nodes from data")
         
         for i, node_data in enumerate(node_data_list):
@@ -365,13 +431,16 @@ Generate a complete, multi-node workflow structure that accomplishes: {instructi
                     if agents:
                         agent_id = agents[0].id
             
-            # Create the base node
+            # Create the base node with intelligent positioning
+            node_id = node_data.get("id", str(uuid.uuid4()))
+            position = node_positions.get(node_id, {"x": 0, "y": 0})
+            
             node = EnhancedWorkflowNode(
-                id=node_data.get("id", str(uuid.uuid4())),
+                id=node_id,
                 type=node_type,
                 name=node_data.get("name", "Node"),
                 description=node_data.get("description"),
-                position={"x": 0, "y": 0},
+                position=position,
                 agent_id=agent_id,
                 instructions_override=node_data.get("instructions") if node_type == NodeType.AGENT else None
             )
