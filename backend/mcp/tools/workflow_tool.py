@@ -220,6 +220,34 @@ class WorkflowTool(MockMCPTool):
                 "description": saved_workflow.description,
                 "node_count": len(saved_workflow.nodes),
                 "edge_count": len(saved_workflow.edges),
+                "nodes": [
+                    {
+                        "id": n.id,
+                        "type": n.type.value if hasattr(n.type, 'value') else str(n.type),
+                        "name": n.name,
+                        "description": n.description,
+                        "position": n.position
+                    }
+                    for n in saved_workflow.nodes
+                ],
+                "edges": [
+                    {
+                        "id": e.id,
+                        "source_node_id": e.source_node_id,
+                        "target_node_id": e.target_node_id,
+                        "label": e.label
+                    }
+                    for e in saved_workflow.edges
+                ],
+                "variables": [
+                    {
+                        "name": v.name,
+                        "type": v.type,
+                        "required": v.required,
+                        "description": v.description
+                    }
+                    for v in saved_workflow.variables
+                ] if saved_workflow.variables else [],
                 "message": f"Successfully created workflow: {saved_workflow.name}"
             }
             

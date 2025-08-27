@@ -101,13 +101,16 @@ async def chat_with_agent(request: ChatRequest) -> ChatResponse:
                 if tool_result.get("tool") == "workflow_tool" and tool_result.get("success"):
                     result = tool_result.get("result", {})
                     if result.get("workflow_id"):
-                        # Get the created workflow data
+                        # Get the created workflow data with full details
                         workflow_data = {
                             "id": result.get("workflow_id"),
                             "name": result.get("workflow_name"),
                             "description": result.get("description"),
                             "node_count": result.get("node_count"),
-                            "edge_count": result.get("edge_count")
+                            "edge_count": result.get("edge_count"),
+                            "nodes": result.get("nodes", []),
+                            "edges": result.get("edges", []),
+                            "variables": result.get("variables", [])
                         }
                         break
         

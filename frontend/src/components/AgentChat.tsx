@@ -371,19 +371,63 @@ export const AgentChat: React.FC = () => {
                           </div>
                           <button
                             onClick={() => {
-                              // Open workflow editor with the generated workflow
-                              window.location.href = `/workflow/${message.workflowGenerated.id}`;
+                              // Copy workflow ID to clipboard and notify user
+                              navigator.clipboard.writeText(message.workflowGenerated.id).then(() => {
+                                alert('Workflow ID copied! Navigate to Enhanced Workflows to view it.');
+                              });
                             }}
                             className="text-xs px-2 py-1 bg-purple-600 text-white rounded hover:bg-purple-700 transition-colors"
                           >
-                            View Workflow
+                            Copy ID & View
                           </button>
                         </div>
                         {message.workflowGenerated.description && (
-                          <p className="text-sm text-gray-700 mb-2">
+                          <p className="text-sm text-gray-700 mb-3">
                             {message.workflowGenerated.description}
                           </p>
                         )}
+                        
+                        {/* Workflow Structure Visualization */}
+                        {message.workflowGenerated.nodes && message.workflowGenerated.nodes.length > 0 && (
+                          <div className="mb-3">
+                            <h4 className="text-sm font-medium text-gray-700 mb-2">Workflow Structure:</h4>
+                            <div className="space-y-1">
+                              {message.workflowGenerated.nodes.map((node: any, index: number) => (
+                                <div key={node.id} className="flex items-center text-xs">
+                                  <div className={`w-2 h-2 rounded-full mr-2 ${
+                                    node.type === 'agent' ? 'bg-blue-500' :
+                                    node.type === 'decision' ? 'bg-yellow-500' :
+                                    node.type === 'storage' ? 'bg-gray-500' :
+                                    node.type === 'transform' ? 'bg-green-500' :
+                                    node.type === 'loop' ? 'bg-purple-500' :
+                                    'bg-indigo-500'
+                                  }`}></div>
+                                  <span className="text-gray-600 capitalize">{node.type}</span>
+                                  <span className="mx-1 text-gray-400">•</span>
+                                  <span className="text-gray-800">{node.name}</span>
+                                  {/* Show connections */}
+                                  {message.workflowGenerated.edges && (
+                                    (() => {
+                                      const outgoingEdges = message.workflowGenerated.edges.filter((edge: any) => edge.source_node_id === node.id);
+                                      if (outgoingEdges.length > 0) {
+                                        return (
+                                          <span className="ml-2 text-gray-400">
+                                            → {outgoingEdges.map((edge: any) => {
+                                              const targetNode = message.workflowGenerated.nodes.find((n: any) => n.id === edge.target_node_id);
+                                              return targetNode ? targetNode.name : 'Unknown';
+                                            }).join(', ')}
+                                          </span>
+                                        );
+                                      }
+                                      return null;
+                                    })()
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
                         <div className="flex items-center space-x-4 text-xs text-gray-600">
                           <span>{message.workflowGenerated.nodes?.length || 0} nodes</span>
                           <span>{message.workflowGenerated.edges?.length || 0} connections</span>
