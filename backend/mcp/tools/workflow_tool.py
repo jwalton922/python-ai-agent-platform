@@ -70,7 +70,7 @@ def calculate_intelligent_layout(nodes_data: List[Dict], edges_data: List[Dict])
     # Calculate positions
     positions = {}
     layer_height = 150  # Vertical spacing between layers
-    node_width = 200   # Horizontal spacing between nodes
+    node_width = 300   # Horizontal spacing between nodes (increased from 200)
     start_y = 50       # Top margin
     
     for layer_idx, layer_nodes in enumerate(layers):
@@ -78,7 +78,7 @@ def calculate_intelligent_layout(nodes_data: List[Dict], edges_data: List[Dict])
         
         # Center nodes horizontally in each layer
         total_width = max(len(layer_nodes) - 1, 0) * node_width
-        start_x = -total_width / 2 + 300  # Offset to keep positive coordinates
+        start_x = -total_width / 2 + 400  # Offset to keep positive coordinates (increased from 300)
         
         for node_idx, node_id in enumerate(layer_nodes):
             x = start_x + node_idx * node_width
