@@ -156,6 +156,51 @@ export const chatWithAgent = async (
   return response.data;
 };
 
+// Async Chat API
+export const startAsyncChat = async (
+  agentId: string,
+  message: string,
+  chatHistory: Array<{ role: string; content: string }> = []
+): Promise<{
+  chat_id: string;
+  status: string;
+  message: string;
+}> => {
+  const response = await api.post('/chat/async', {
+    agent_id: agentId,
+    message: message,
+    chat_history: chatHistory
+  });
+  return response.data;
+};
+
+export const getAsyncChatStatus = async (chatId: string): Promise<{
+  chat_id: string;
+  status: string;
+  progress: Array<{
+    timestamp: string;
+    type: string;
+    message: string;
+  }>;
+  result?: {
+    message: string;
+    tool_calls: any[];
+    success: boolean;
+    error?: string;
+    workflow_generated?: any;
+  };
+  error?: string;
+  created_at: string;
+  updated_at: string;
+}> => {
+  const response = await api.get(`/chat/async/${chatId}/status`);
+  return response.data;
+};
+
+export const cleanupAsyncChat = async (chatId: string): Promise<void> => {
+  await api.delete(`/chat/async/${chatId}`);
+};
+
 // Health check
 export const healthCheck = async (): Promise<{ status: string }> => {
   const response = await api.get('/health');

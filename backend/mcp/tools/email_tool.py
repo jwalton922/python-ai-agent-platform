@@ -1,4 +1,5 @@
 from typing import Dict, Any
+import asyncio
 from backend.models.mcp_tool import MockMCPTool, MCPToolSchema
 from backend.models.activity import ActivityCreate, ActivityType
 from backend.storage.file_storage import file_storage as storage
@@ -24,6 +25,9 @@ class EmailTool(MockMCPTool):
         to = params.get("to", "")
         subject = params.get("subject", "")
         body = params.get("body", "")
+        
+        # Simulate email sending delay (3 seconds)
+        await asyncio.sleep(6)
         
         # Mock email sending
         return {

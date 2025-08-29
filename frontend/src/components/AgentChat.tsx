@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Bot, User, Loader, Wrench, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { Send, Bot, User, Loader, Wrench, AlertCircle, RefreshCw, Trash2, Zap, Clock } from 'lucide-react';
 import * as api from '../services/api';
 import { Agent } from '../types';
 
@@ -10,6 +10,13 @@ interface Message {
   toolCalls?: ToolCall[];
   error?: string;
   workflowGenerated?: any;
+  isAsync?: boolean;
+  chatId?: string;
+  progress?: Array<{
+    timestamp: string;
+    type: string;
+    message: string;
+  }>;
 }
 
 interface ToolCall {
@@ -33,8 +40,11 @@ export const AgentChat: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [useAsyncMode, setUseAsyncMode] = useState(false);
+  const [activeAsyncChats, setActiveAsyncChats] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const pollingIntervals = useRef<Record<string, NodeJS.Timeout>>({});
 
   useEffect(() => {
     loadAgents();
@@ -43,6 +53,13 @@ export const AgentChat: React.FC = () => {
   useEffect(() => {
     scrollToBottom();
   }, [sessions, selectedAgentId]);
+
+  useEffect(() => {
+    // Cleanup polling intervals on unmount
+    return () => {
+      Object.values(pollingIntervals.current).forEach(clearInterval);
+    };
+  }, []);
 
   const loadAgents = async () => {
     try {
@@ -66,6 +83,132 @@ export const AgentChat: React.FC = () => {
       return { agentId: selectedAgentId, messages: [] };
     }
     return sessions[selectedAgentId];
+  };
+
+  const pollAsyncChat = async (chatId: string, agentId: string, updatedMessages: Message[]) => {
+    let pollCount = 0;
+    const maxPolls = 90; // 90 seconds timeout
+    
+    const interval = setInterval(async () => {
+      try {
+        pollCount++;
+        
+        if (pollCount > maxPolls) {
+          clearInterval(interval);
+          delete pollingIntervals.current[chatId];
+          setActiveAsyncChats(prev => {
+            const next = new Set(prev);
+            next.delete(chatId);
+            return next;
+          });
+          
+          // Add timeout message
+          const timeoutMessage: Message = {
+            role: 'assistant',
+            content: 'Chat processing timed out after 90 seconds.',
+            timestamp: new Date(),
+            error: 'Timeout',
+            isAsync: true,
+            chatId
+          };
+          
+          setSessions(prev => ({
+            ...prev,
+            [agentId]: {
+              agentId,
+              messages: prev[agentId].messages.map(msg => 
+                msg.chatId === chatId ? { ...msg, ...timeoutMessage } : msg
+              )
+            }
+          }));
+          return;
+        }
+        
+        const status = await api.getAsyncChatStatus(chatId);
+        
+        // Update progress in the placeholder message
+        setSessions(prev => ({
+          ...prev,
+          [agentId]: {
+            agentId,
+            messages: prev[agentId].messages.map(msg => 
+              msg.chatId === chatId ? { ...msg, progress: status.progress } : msg
+            )
+          }
+        }));
+        
+        if (status.status === 'completed' && status.result) {
+          clearInterval(interval);
+          delete pollingIntervals.current[chatId];
+          setActiveAsyncChats(prev => {
+            const next = new Set(prev);
+            next.delete(chatId);
+            return next;
+          });
+          
+          // Update the message with the final result
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: status.result.message,
+            timestamp: new Date(),
+            toolCalls: status.result.tool_calls,
+            workflowGenerated: status.result.workflow_generated,
+            isAsync: true,
+            chatId,
+            progress: status.progress
+          };
+          
+          setSessions(prev => ({
+            ...prev,
+            [agentId]: {
+              agentId,
+              messages: prev[agentId].messages.map(msg => 
+                msg.chatId === chatId ? assistantMessage : msg
+              )
+            }
+          }));
+          
+          // Cleanup the async session
+          await api.cleanupAsyncChat(chatId);
+        } else if (status.status === 'failed') {
+          clearInterval(interval);
+          delete pollingIntervals.current[chatId];
+          setActiveAsyncChats(prev => {
+            const next = new Set(prev);
+            next.delete(chatId);
+            return next;
+          });
+          
+          // Update with error message
+          const errorMessage: Message = {
+            role: 'assistant',
+            content: 'Sorry, I encountered an error processing your message.',
+            timestamp: new Date(),
+            error: status.error || 'Unknown error occurred',
+            isAsync: true,
+            chatId,
+            progress: status.progress
+          };
+          
+          setSessions(prev => ({
+            ...prev,
+            [agentId]: {
+              agentId,
+              messages: prev[agentId].messages.map(msg => 
+                msg.chatId === chatId ? errorMessage : msg
+              )
+            }
+          }));
+          
+          // Cleanup the async session
+          await api.cleanupAsyncChat(chatId);
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    }, 1000); // Poll every second
+    
+    pollingIntervals.current[chatId] = interval;
   };
 
   const sendMessage = async () => {
@@ -96,31 +239,65 @@ export const AgentChat: React.FC = () => {
         content: msg.content
       }));
 
-      // Send message to API
-      const response = await api.chatWithAgent(
-        selectedAgentId,
-        userMessage.content,
-        chatHistory
-      );
-
-      if (response.success) {
-        const assistantMessage: Message = {
+      if (useAsyncMode) {
+        // Start async chat
+        const asyncResponse = await api.startAsyncChat(
+          selectedAgentId,
+          userMessage.content,
+          chatHistory
+        );
+        
+        // Add placeholder message for async processing
+        const placeholderMessage: Message = {
           role: 'assistant',
-          content: response.message,
+          content: 'Processing your request asynchronously...',
           timestamp: new Date(),
-          toolCalls: response.tool_calls,
-          workflowGenerated: response.workflow_generated
+          isAsync: true,
+          chatId: asyncResponse.chat_id,
+          progress: []
         };
-
+        
         setSessions({
           ...sessions,
           [selectedAgentId]: {
             agentId: selectedAgentId,
-            messages: [...updatedMessages, assistantMessage]
+            messages: [...updatedMessages, placeholderMessage]
           }
         });
+        
+        // Track active async chat
+        setActiveAsyncChats(prev => new Set(prev).add(asyncResponse.chat_id));
+        
+        // Start polling for results
+        pollAsyncChat(asyncResponse.chat_id, selectedAgentId, [...updatedMessages, placeholderMessage]);
+        
       } else {
-        throw new Error(response.error || 'Failed to get response');
+        // Send synchronous message to API
+        const response = await api.chatWithAgent(
+          selectedAgentId,
+          userMessage.content,
+          chatHistory
+        );
+
+        if (response.success) {
+          const assistantMessage: Message = {
+            role: 'assistant',
+            content: response.message,
+            timestamp: new Date(),
+            toolCalls: response.tool_calls,
+            workflowGenerated: response.workflow_generated
+          };
+
+          setSessions({
+            ...sessions,
+            [selectedAgentId]: {
+              agentId: selectedAgentId,
+              messages: [...updatedMessages, assistantMessage]
+            }
+          });
+        } else {
+          throw new Error(response.error || 'Failed to get response');
+        }
       }
     } catch (error: any) {
       console.error('Failed to send message:', error);
@@ -191,6 +368,22 @@ export const AgentChat: React.FC = () => {
                 </option>
               ))}
             </select>
+
+            {/* Async Mode Toggle */}
+            <button
+              onClick={() => setUseAsyncMode(!useAsyncMode)}
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+                useAsyncMode 
+                  ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' 
+                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+              }`}
+              title={useAsyncMode ? 'Async mode enabled' : 'Click to enable async mode'}
+            >
+              <Zap size={16} />
+              <span className="text-sm font-medium">
+                {useAsyncMode ? 'Async' : 'Sync'}
+              </span>
+            </button>
 
             {/* Action Buttons */}
             <button
@@ -289,10 +482,34 @@ export const AgentChat: React.FC = () => {
                           ? 'bg-blue-600 text-white'
                           : message.error
                           ? 'bg-red-100 text-red-900 border border-red-200'
+                          : message.isAsync && message.chatId && activeAsyncChats.has(message.chatId)
+                          ? 'bg-purple-50 text-purple-900 border border-purple-200'
                           : 'bg-white text-gray-900 border border-gray-200'
                       }`}
                     >
                       <p className="whitespace-pre-wrap">{message.content}</p>
+                      
+                      {/* Async Progress Display */}
+                      {message.isAsync && message.progress && message.progress.length > 0 && (
+                        <div className="mt-3 space-y-1">
+                          <div className="flex items-center space-x-2 text-xs text-purple-600 mb-2">
+                            <Clock size={12} className="animate-pulse" />
+                            <span className="font-medium">Processing Steps:</span>
+                          </div>
+                          {message.progress.slice(-3).map((step, idx) => (
+                            <div key={idx} className="flex items-start space-x-2 text-xs">
+                              <span className="text-purple-400">▸</span>
+                              <span className="text-purple-700">{step.message}</span>
+                            </div>
+                          ))}
+                          {message.chatId && activeAsyncChats.has(message.chatId) && (
+                            <div className="flex items-center space-x-2 mt-2">
+                              <Loader className="animate-spin h-3 w-3 text-purple-600" />
+                              <span className="text-xs text-purple-600">Processing...</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* Error Display */}

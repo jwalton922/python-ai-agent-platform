@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Unified startup script for AI Agent Platform
-Runs FastAPI backend with integrated Streamlit and React frontend
+Production startup script for AI Agent Platform
+Runs FastAPI backend with multiple workers for better concurrency
 """
 
 import os
@@ -34,8 +34,8 @@ def check_frontend_build():
     return True
 
 def main():
-    """Run the unified application"""
-    logger.info("🚀 Starting AI Agent Platform - Unified Server")
+    """Run the application in production mode"""
+    logger.info("🚀 Starting AI Agent Platform - Production Server")
     
     # Check frontend
     has_frontend = check_frontend_build()
@@ -47,14 +47,13 @@ def main():
     # Set environment variables
     os.environ["PYTHONPATH"] = str(project_root)
     
-    # Server configuration
+    # Production server configuration
     host = os.getenv("HOST", "0.0.0.0")
     port = int(os.getenv("PORT", "8000"))
-    reload = os.getenv("RELOAD", "true").lower() == "true"
-    workers = int(os.getenv("WORKERS", "4"))  # Default to 4 workers
+    workers = int(os.getenv("WORKERS", "4"))  # Default to 4 workers for production
     
-    logger.info(f"🌐 Starting server on http://{host}:{port}")
-    logger.info(f"⚙️  Worker processes: {workers if not reload else 1} (reload mode uses single worker)")
+    logger.info(f"🌐 Starting production server on http://{host}:{port}")
+    logger.info(f"⚙️  Worker processes: {workers}")
     logger.info("📍 Available endpoints:")
     logger.info(f"   - Main Landing:        http://localhost:{port}/")
     logger.info(f"   - Streamlit Dashboard: http://localhost:{port}/streamlit")
@@ -62,17 +61,18 @@ def main():
         logger.info(f"   - React App:           http://localhost:{port}/app")
     logger.info(f"   - API Documentation:   http://localhost:{port}/api/docs")
     logger.info(f"   - Health Check:        http://localhost:{port}/health")
+    logger.info("")
+    logger.info("🏭 Running in PRODUCTION mode (no auto-reload)")
     
-    # Run the FastAPI app with uvicorn
-    # Note: workers parameter is ignored when reload=True (development mode)
+    # Run the FastAPI app with uvicorn in production mode
     uvicorn.run(
         "backend.main:app",
         host=host,
         port=port,
-        reload=reload,
-        workers=workers if not reload else None,  # Multiple workers only in production
+        workers=workers,  # Multiple workers for better concurrency
         log_level="info",
-        access_log=True
+        access_log=True,
+        reload=False  # Explicitly disable reload for production
     )
 
 if __name__ == "__main__":
