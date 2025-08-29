@@ -716,16 +716,40 @@ async def _execute_tool_calls_async(response: str, available_tools, agent_id: st
                 }
             )
             
-            # Add progress update
+            # Add progress update with tool details
             if chat_id in async_chat_sessions:
                 async_chat_sessions[chat_id]["progress"].append({
                     "timestamp": datetime.utcnow().isoformat(),
-                    "type": "tool_execution",
-                    "message": f"Executing tool: {tool.name} ({action})"
+                    "type": "tool_execution_start",
+                    "message": f"Executing tool: {tool.name} ({action})",
+                    "tool_call": {
+                        "tool": tool_id,
+                        "action": action,
+                        "params": params,
+                        "success": None,  # Will be updated when completed
+                        "result": None,
+                        "error": None
+                    }
                 })
             
             # Execute the tool
             result = await tool.execute(params)
+            
+            # Add progress update with completion details
+            if chat_id in async_chat_sessions:
+                async_chat_sessions[chat_id]["progress"].append({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "type": "tool_execution_complete",
+                    "message": f"Tool completed: {tool.name}",
+                    "tool_call": {
+                        "tool": tool_id,
+                        "action": action,
+                        "params": params,
+                        "success": True,
+                        "result": result,
+                        "error": None
+                    }
+                })
             
             # Log tool execution completion
             await _log_activity_with_uuid(
@@ -755,13 +779,29 @@ async def _execute_tool_calls_async(response: str, available_tools, agent_id: st
             print(f"Tool invocation failed: {error_msg}")
             traceback.print_exc()
             
+            # Add progress update for tool failure
+            if chat_id in async_chat_sessions:
+                async_chat_sessions[chat_id]["progress"].append({
+                    "timestamp": datetime.utcnow().isoformat(),
+                    "type": "tool_execution_error",
+                    "message": f"Tool failed: {tool.name if 'tool' in locals() and tool else tool_id}",
+                    "tool_call": {
+                        "tool": tool_id,
+                        "action": action,
+                        "params": params if 'params' in locals() else {},
+                        "success": False,
+                        "result": None,
+                        "error": error_msg
+                    }
+                })
+            
             # Log tool failure
             await _log_activity_with_uuid(
                 ActivityType.TOOL_INVOCATION,
                 chat_id=chat_id,
                 agent_id=agent_id,
                 tool_id=tool_id,
-                title=f"Tool Failed: {tool.name if tool else tool_id}",
+                title=f"Tool Failed: {tool.name if 'tool' in locals() and tool else tool_id}",
                 description=f"Tool execution failed: {error_msg}",
                 data={
                     "chat_id": chat_id,

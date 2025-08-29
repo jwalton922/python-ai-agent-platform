@@ -16,6 +16,14 @@ interface Message {
     timestamp: string;
     type: string;
     message: string;
+    tool_call?: {
+      tool: string;
+      action: string;
+      params?: Record<string, any>;
+      result?: any;
+      success: boolean | null;
+      error?: string;
+    };
   }>;
 }
 
@@ -40,7 +48,7 @@ export const AgentChat: React.FC = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [useAsyncMode, setUseAsyncMode] = useState(false);
+  const [useAsyncMode, setUseAsyncMode] = useState(true);
   const [activeAsyncChats, setActiveAsyncChats] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -491,17 +499,84 @@ export const AgentChat: React.FC = () => {
                       
                       {/* Async Progress Display */}
                       {message.isAsync && message.progress && message.progress.length > 0 && (
-                        <div className="mt-3 space-y-1">
+                        <div className="mt-3 space-y-2">
                           <div className="flex items-center space-x-2 text-xs text-purple-600 mb-2">
                             <Clock size={12} className="animate-pulse" />
                             <span className="font-medium">Processing Steps:</span>
                           </div>
-                          {message.progress.slice(-3).map((step, idx) => (
+                          
+                          {/* Show recent non-tool progress steps */}
+                          {message.progress.filter(step => !step.type?.includes('tool_execution')).slice(-2).map((step, idx) => (
                             <div key={idx} className="flex items-start space-x-2 text-xs">
                               <span className="text-purple-400">▸</span>
                               <span className="text-purple-700">{step.message}</span>
                             </div>
                           ))}
+                          
+                          {/* Show tool calls as they happen */}
+                          {message.progress.filter(step => step.tool_call).map((step, idx) => {
+                            const toolCall = step.tool_call;
+                            if (!toolCall) return null;
+                            
+                            return (
+                              <div
+                                key={`tool-${idx}`}
+                                className={`p-3 rounded-lg text-sm ${
+                                  toolCall.success === null
+                                    ? 'bg-yellow-50 border border-yellow-200' // In progress
+                                    : toolCall.success
+                                    ? 'bg-green-50 border border-green-200' // Success
+                                    : 'bg-red-50 border border-red-200' // Error
+                                }`}
+                              >
+                                <div className="flex items-center space-x-2 mb-1">
+                                  <Wrench size={14} />
+                                  <span className="font-medium">
+                                    {toolCall.tool} - {toolCall.action}
+                                  </span>
+                                  {toolCall.success === null ? (
+                                    <span className="flex items-center space-x-1 text-yellow-600 text-xs">
+                                      <Loader size={10} className="animate-spin" />
+                                      <span>Running...</span>
+                                    </span>
+                                  ) : toolCall.success ? (
+                                    <span className="text-green-600 text-xs">✓ Success</span>
+                                  ) : (
+                                    <span className="text-red-600 text-xs">✗ Failed</span>
+                                  )}
+                                </div>
+                                
+                                {toolCall.params && Object.keys(toolCall.params).length > 0 && (
+                                  <details className="mt-2">
+                                    <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800">
+                                      View parameters
+                                    </summary>
+                                    <pre className="mt-1 text-xs bg-white p-2 rounded overflow-x-auto">
+                                      {JSON.stringify(toolCall.params, null, 2)}
+                                    </pre>
+                                  </details>
+                                )}
+                                
+                                {toolCall.result && (
+                                  <details className="mt-2">
+                                    <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-800">
+                                      View result
+                                    </summary>
+                                    <pre className="mt-1 text-xs bg-white p-2 rounded overflow-x-auto">
+                                      {JSON.stringify(toolCall.result, null, 2)}
+                                    </pre>
+                                  </details>
+                                )}
+                                
+                                {toolCall.error && (
+                                  <div className="mt-2 text-xs text-red-600">
+                                    Error: {toolCall.error}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                          
                           {message.chatId && activeAsyncChats.has(message.chatId) && (
                             <div className="flex items-center space-x-2 mt-2">
                               <Loader className="animate-spin h-3 w-3 text-purple-600" />
