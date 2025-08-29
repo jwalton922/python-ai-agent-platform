@@ -146,6 +146,7 @@ export const chatWithAgent = async (
   tool_calls: any[];
   success: boolean;
   error?: string;
+  workflow_generated?: any;
 }> => {
   const response = await api.post('/chat/', {
     agent_id: agentId,

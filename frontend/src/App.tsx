@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { AgentBuilder } from './components/AgentBuilder';
 import { WorkflowEditor } from './components/WorkflowEditor';
+import { EnhancedWorkflowEditor } from './components/EnhancedWorkflowEditor';
 import { ActivityMonitor } from './components/ActivityMonitor';
 import { AgentChat } from './components/AgentChat';
 import { Navigation } from './components/Navigation';
@@ -10,7 +11,7 @@ if (process.env.NODE_ENV === 'development') {
   import('./utils/testApiConfig');
 }
 
-type View = 'agents' | 'workflows' | 'activity' | 'chat';
+type View = 'agents' | 'workflows' | 'enhanced-workflows' | 'activity' | 'chat';
 
 function App() {
   const [currentView, setCurrentView] = useState<View>('chat');
@@ -21,6 +22,8 @@ function App() {
         return <AgentBuilder />;
       case 'workflows':
         return <WorkflowEditor />;
+      case 'enhanced-workflows':
+        return <EnhancedWorkflowEditor />;
       case 'chat':
         return <AgentChat />;
       case 'activity':

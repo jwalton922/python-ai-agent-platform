@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pathlib import Path
 import os
 from backend.api.routes import agent_routes, workflow_routes, mcp_routes, activity_routes, llm_routes, chat_routes
-from backend.api.routes import streamlit_routes
+from backend.api.routes import streamlit_routes, workflow_routes_enhanced
 
 app = FastAPI(title="AI Agent Platform", version="1.0.0")
 
@@ -21,6 +21,7 @@ app.add_middleware(
 # Include API routers
 app.include_router(agent_routes.router, prefix="/api/agents", tags=["agents"])
 app.include_router(workflow_routes.router, prefix="/api/workflows", tags=["workflows"])
+app.include_router(workflow_routes_enhanced.router, prefix="/api/workflows/enhanced", tags=["enhanced-workflows"])
 app.include_router(mcp_routes.router, prefix="/api/mcp-tools", tags=["mcp-tools"])
 app.include_router(activity_routes.router, prefix="/api/activities", tags=["activities"])
 app.include_router(llm_routes.router, prefix="/api/llm", tags=["llm"])

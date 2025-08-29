@@ -1,0 +1,152 @@
+{
+  "id": "simple-executable-workflow",
+  "name": "Simple Text Processing Workflow",
+  "description": "A simple executable workflow that processes text input",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "text_processor",
+      "type": "agent",
+      "name": "Text Processor",
+      "description": "Processes and analyzes input text",
+      "position": {"x": 100, "y": 100},
+      "agent_id": "default-agent",
+      "instructions_append": "Analyze the provided text and extract key information. Respond with a JSON object containing: summary, word_count, sentiment, and key_topics.",
+      "config": {
+        "timeout_ms": 30000,
+        "token_limits": {
+          "max_tokens": 1000,
+          "max_cost": 0.10
+        },
+        "error_handling": "fail",
+        "cache_results": false
+      },
+      "input_mapping": [
+        {
+          "source": "${global.input_text}",
+          "target": "text_to_analyze"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "summary",
+          "target": "text_summary"
+        },
+        {
+          "source": "word_count",
+          "target": "word_count"
+        },
+        {
+          "source": "sentiment", 
+          "target": "text_sentiment"
+        }
+      ],
+      "tags": [],
+      "metadata": {}
+    },
+    {
+      "id": "result_formatter",
+      "type": "transform",
+      "name": "Format Results",
+      "description": "Formats the analysis results into a final report",
+      "position": {"x": 400, "y": 100},
+      "transformations": [
+        {
+          "field": "final_report",
+          "operation": "SET",
+          "value": "Text Analysis Report:\nSummary: ${text_processor.text_summary}\nWord Count: ${text_processor.word_count}\nSentiment: ${text_processor.text_sentiment}"
+        }
+      ],
+      "config": {
+        "timeout_ms": 5000,
+        "error_handling": "fail"
+      },
+      "input_mapping": [],
+      "output_mapping": [
+        {
+          "source": "final_report",
+          "target": "analysis_report"
+        }
+      ],
+      "tags": [],
+      "metadata": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "processor_to_formatter",
+      "source_node_id": "text_processor",
+      "target_node_id": "result_formatter",
+      "condition": null,
+      "data_mapping": [
+        {
+          "source": "text_summary",
+          "target": "summary"
+        },
+        {
+          "source": "word_count",
+          "target": "count"
+        },
+        {
+          "source": "text_sentiment",
+          "target": "sentiment"
+        }
+      ],
+      "priority": 0,
+      "label": null,
+      "metadata": {}
+    }
+  ],
+  "variables": [
+    {
+      "name": "input_text",
+      "type": "string",
+      "required": true,
+      "default": null,
+      "description": "The text to be analyzed by the workflow",
+      "validation": {
+        "minLength": 1,
+        "maxLength": 5000
+      },
+      "scope": "global"
+    }
+  ],
+  "execution_mode": "sequential",
+  "trigger_conditions": [],
+  "trigger_config": {},
+  "global_error_handler": null,
+  "error_handling_strategy": "retry_then_fail",
+  "max_retries": 3,
+  "settings": {
+    "max_execution_time_ms": 120000,
+    "max_total_tokens": 2000,
+    "max_parallel_executions": 1,
+    "priority": "medium",
+    "max_memory_mb": null,
+    "max_api_calls": null,
+    "rate_limit_per_minute": null,
+    "continue_on_error": false,
+    "save_intermediate_state": true,
+    "enable_checkpoints": true,
+    "checkpoint_interval_ms": 30000,
+    "max_cost_usd": 0.50,
+    "cost_warning_threshold": 0.8
+  },
+  "monitoring": {
+    "log_level": "info",
+    "trace_sampling": 0.1,
+    "metrics_enabled": true,
+    "capture_inputs": true,
+    "capture_outputs": true,
+    "capture_intermediate": false,
+    "alert_channels": [],
+    "sla_ms": 60000,
+    "error_rate_threshold": 0.1
+  },
+  "testing": null,
+  "status": "idle",
+  "tags": ["simple", "text-processing", "example"],
+  "metadata": {},
+  "parent_workflow_id": null,
+  "child_workflow_ids": []
+}

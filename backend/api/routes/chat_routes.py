@@ -1,10 +1,14 @@
 from typing import Dict, Any, List
+import traceback
+import json
+import re
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from backend.storage.file_storage import file_storage as storage
 from backend.mcp.tool_registry import tool_registry
 from backend.llm.factory import llm_provider
 from backend.models.activity import ActivityCreate, ActivityType
+from backend.api.routes.agent_workflow_integration import detect_workflow_request, extract_workflow_instructions
 
 router = APIRouter()
 
@@ -25,6 +29,7 @@ class ChatResponse(BaseModel):
     tool_calls: List[Dict[str, Any]] = Field(default_factory=list, description="Tools used")
     success: bool = Field(..., description="Whether the chat was successful")
     error: str = Field(None, description="Error message if any")
+    workflow_generated: Dict[str, Any] = Field(None, description="Generated workflow if applicable")
 
 
 @router.post("/", response_model=ChatResponse)
@@ -46,8 +51,16 @@ async def chat_with_agent(request: ChatRequest) -> ChatResponse:
         # Format tools for LLM
         tool_descriptions = _format_tools_for_llm(available_tools)
         
+        # Check if this is a workflow creation request
+        is_workflow_request = await detect_workflow_request(request.message)
+        
         # Build enhanced system prompt
         system_prompt = agent.instructions
+        if is_workflow_request and "workflow_tool" in agent.mcp_tool_permissions:
+            system_prompt += "\n\nThe user is asking you to create a workflow. You have access to the workflow_tool for this."
+            system_prompt += "\n\nTo create a workflow, use the workflow tool with this format:"
+            system_prompt += "\nTOOL_CALL:workflow_tool:create:{\"instructions\": \"user's workflow requirements\", \"workflow_name\": \"descriptive name\"}"
+        
         if available_tools:
             system_prompt += f"\n\nYou have access to the following tools:\n{tool_descriptions}"
             system_prompt += "\n\nTo use a tool, respond with: TOOL_CALL:tool_name:action:{parameters as JSON}"
@@ -80,6 +93,26 @@ async def chat_with_agent(request: ChatRequest) -> ChatResponse:
                     temperature=0.7,
                     max_tokens=1000
                 )
+        
+        # Check if workflow was created through tool calls
+        workflow_data = None
+        if tool_results:
+            for tool_result in tool_results:
+                if tool_result.get("tool") == "workflow_tool" and tool_result.get("success"):
+                    result = tool_result.get("result", {})
+                    if result.get("workflow_id"):
+                        # Get the created workflow data with full details
+                        workflow_data = {
+                            "id": result.get("workflow_id"),
+                            "name": result.get("workflow_name"),
+                            "description": result.get("description"),
+                            "node_count": result.get("node_count"),
+                            "edge_count": result.get("edge_count"),
+                            "nodes": result.get("nodes", []),
+                            "edges": result.get("edges", []),
+                            "variables": result.get("variables", [])
+                        }
+                        break
         
         # Log comprehensive chat activity
         await _log_activity(
@@ -114,13 +147,16 @@ async def chat_with_agent(request: ChatRequest) -> ChatResponse:
         )
         
         return ChatResponse(
-            message=final_response,
+            message=final_response if not workflow_data else f"I've created a workflow for you: {workflow_data.get('name', 'Generated Workflow')}. {workflow_data.get('description', '')}",
             tool_calls=tool_results,
-            success=True
+            success=True,
+            workflow_generated=workflow_data
         )
         
     except Exception as e:
         # Log chat failure with comprehensive error details
+        print(f"Chat with agent failed: {e}")
+        traceback.print_exc()
         await _log_activity(
             ActivityType.AGENT_EXECUTION,
             agent_id=request.agent_id if request else "unknown",
@@ -171,6 +207,8 @@ def _format_tools_for_llm(tools) -> str:
             actions = "post, read"
         elif tool.tool_id == "file_tool":
             actions = "read, write, list"
+        elif tool.tool_id == "workflow_tool":
+            actions = "create, list, get, execute, delete"
         else:
             actions = "execute"
             
@@ -209,7 +247,13 @@ async def _execute_tool_calls(response: str, available_tools, agent_id: str) -> 
             # Parse parameters
             import json
             params = json.loads(params_json)
-            params["action"] = action  # Add action to parameters
+            
+            # For workflow_tool, the action is already in the TOOL_CALL format
+            if tool_id == "workflow_tool":
+                if "action" not in params:
+                    params["action"] = action
+            else:
+                params["action"] = action  # Add action to parameters for other tools
             
             # Execute the tool
             result = await tool.execute(params)
@@ -269,6 +313,8 @@ async def _execute_tool_calls(response: str, available_tools, agent_id: str) -> 
             
         except Exception as e:
             # Log comprehensive tool failure with all inputs
+            print(f"Tool invocation failed: {e}")
+            traceback.print_exc()
             await _log_activity(
                 ActivityType.TOOL_INVOCATION,
                 agent_id=agent_id,

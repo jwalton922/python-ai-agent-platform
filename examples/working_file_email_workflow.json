@@ -1,0 +1,215 @@
+{
+  "id": "working-file-email-workflow",
+  "name": "Working File and Email Workflow",
+  "description": "A working example using your actual File and Email agents",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "file_agent_node",
+      "type": "agent",
+      "name": "File Reader",
+      "description": "Reads files using File Agent",
+      "position": {"x": 100, "y": 100},
+      "agent_id": "8bb72460-0221-4d9c-874b-0c2c241e0a00",
+      "instructions_override": null,
+      "instructions_append": "List all text files in the specified directory and read their contents. Focus on .txt, .md, and .log files.",
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": null,
+      "validation_schema": null,
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 60000,
+        "retry": null,
+        "error_handling": "fail",
+        "token_limits": {
+          "max_tokens": 2000,
+          "max_cost": 0.25
+        },
+        "cache_results": false,
+        "cache_ttl_seconds": null,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": null,
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [
+        {
+          "source": "${global.directory_path}",
+          "target": "directory"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "file_list",
+          "target": "found_files"
+        },
+        {
+          "source": "file_contents",
+          "target": "file_data"
+        }
+      ],
+      "tags": ["file-processing"],
+      "metadata": {}
+    },
+    {
+      "id": "email_agent_node",
+      "type": "agent", 
+      "name": "Email Sender",
+      "description": "Sends email using Email Agent",
+      "position": {"x": 400, "y": 100},
+      "agent_id": "a214418f-9621-4c25-ac4a-c5e9d0f4a46a",
+      "instructions_override": null,
+      "instructions_append": "Send an email with the file contents as the body. Use 'File Processing Report' as the subject.",
+      "condition_branches": null,
+      "default_target": null,
+      "transformations": null,
+      "validation_schema": null,
+      "loop_config": null,
+      "loop_body_nodes": null,
+      "parallel_branches": null,
+      "wait_strategy": null,
+      "wait_count": null,
+      "trigger_type": null,
+      "trigger_config": null,
+      "error_types": null,
+      "fallback_node": null,
+      "aggregation_method": null,
+      "aggregation_config": null,
+      "sub_workflow_id": null,
+      "sub_workflow_version": null,
+      "config": {
+        "timeout_ms": 45000,
+        "retry": null,
+        "error_handling": "fail",
+        "token_limits": {
+          "max_tokens": 1500,
+          "max_cost": 0.20
+        },
+        "cache_results": false,
+        "cache_ttl_seconds": null,
+        "agent_config": null,
+        "decision_config": null,
+        "transform_config": null,
+        "loop_config": null,
+        "parallel_config": null,
+        "human_config": null,
+        "storage_config": null
+      },
+      "input_mapping": [
+        {
+          "source": "${file_agent_node.file_data}",
+          "target": "email_content"
+        },
+        {
+          "source": "${global.recipient_email}",
+          "target": "to_email"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "email_status",
+          "target": "sent_status"
+        },
+        {
+          "source": "message_id",
+          "target": "email_id"
+        }
+      ],
+      "tags": ["email"],
+      "metadata": {}
+    }
+  ],
+  "edges": [
+    {
+      "id": "file_to_email_edge",
+      "source_node_id": "file_agent_node",
+      "target_node_id": "email_agent_node", 
+      "condition": null,
+      "priority": 0,
+      "data_mapping": [
+        {
+          "source": "file_data",
+          "target": "content"
+        }
+      ],
+      "data_filter": null,
+      "data_transform": null,
+      "label": null,
+      "metadata": {}
+    }
+  ],
+  "variables": [
+    {
+      "name": "directory_path",
+      "type": "string",
+      "required": true,
+      "default": null,
+      "description": "Directory path to scan for files",
+      "validation": null,
+      "scope": "global"
+    },
+    {
+      "name": "recipient_email", 
+      "type": "string",
+      "required": true,
+      "default": null,
+      "description": "Email address to send the report to",
+      "validation": null,
+      "scope": "global"
+    }
+  ],
+  "execution_mode": "sequential",
+  "trigger_conditions": [],
+  "trigger_config": {},
+  "global_error_handler": null,
+  "error_handling_strategy": "retry_then_fail",
+  "max_retries": 2,
+  "settings": {
+    "max_execution_time_ms": 180000,
+    "max_total_tokens": 4000,
+    "max_parallel_executions": 1,
+    "priority": "medium",
+    "max_memory_mb": null,
+    "max_api_calls": null,
+    "rate_limit_per_minute": null,
+    "continue_on_error": false,
+    "save_intermediate_state": true,
+    "enable_checkpoints": true,
+    "checkpoint_interval_ms": 30000,
+    "max_cost_usd": 1.00,
+    "cost_warning_threshold": 0.8
+  },
+  "monitoring": {
+    "log_level": "info",
+    "trace_sampling": 0.1,
+    "metrics_enabled": true,
+    "capture_inputs": true,
+    "capture_outputs": true,
+    "capture_intermediate": false,
+    "alert_channels": [],
+    "sla_ms": 120000,
+    "error_rate_threshold": 0.1
+  },
+  "testing": null,
+  "status": "idle",
+  "tags": ["working-example", "file-email"],
+  "metadata": {},
+  "parent_workflow_id": null,
+  "child_workflow_ids": []
+}

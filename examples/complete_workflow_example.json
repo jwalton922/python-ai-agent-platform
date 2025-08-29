@@ -1,0 +1,299 @@
+{
+  "id": "customer-support-example",
+  "name": "Customer Support Workflow",
+  "description": "Complete example with node configuration and connections",
+  "version": "1.0.0",
+  "nodes": [
+    {
+      "id": "intake_agent",
+      "type": "agent",
+      "name": "Customer Intake",
+      "description": "Initial customer message processing",
+      "position": {"x": 100, "y": 200},
+      "agent_id": "intake_specialist",
+      "instructions_append": "Classify the customer's sentiment and urgency level",
+      "config": {
+        "timeout_ms": 30000,
+        "token_limits": {
+          "max_tokens": 500,
+          "max_cost": 0.05
+        }
+      },
+      "input_mapping": [
+        {
+          "source": "${global.customer_message}",
+          "target": "message"
+        },
+        {
+          "source": "${global.customer_id}",
+          "target": "customer_id"
+        }
+      ],
+      "output_mapping": [
+        {
+          "source": "sentiment",
+          "target": "customer_sentiment"
+        },
+        {
+          "source": "urgency_score",
+          "target": "urgency_level"
+        }
+      ]
+    },
+    {
+      "id": "routing_decision",
+      "type": "decision",
+      "name": "Route Customer",
+      "description": "Route based on sentiment and urgency",
+      "position": {"x": 400, "y": 200},
+      "condition_branches": [
+        {
+          "name": "high_priority",
+          "expression": "${intake_agent.urgency_level} >= 8 or ${intake_agent.customer_sentiment} == 'angry'",
+          "target": "escalation_agent",
+          "priority": 1
+        },
+        {
+          "name": "billing_issue",
+          "expression": "'billing' in ${intake_agent.categories}",
+          "target": "billing_specialist",
+          "priority": 2
+        },
+        {
+          "name": "technical_issue",
+          "expression": "'technical' in ${intake_agent.categories}",
+          "target": "tech_support",
+          "priority": 3
+        }
+      ],
+      "default_target": "general_support"
+    },
+    {
+      "id": "escalation_agent",
+      "type": "agent",
+      "name": "Senior Support",
+      "description": "Handle escalated cases",
+      "position": {"x": 700, "y": 100},
+      "agent_id": "senior_support_agent",
+      "instructions_override": "This is a high-priority escalation. Provide immediate, comprehensive assistance.",
+      "config": {
+        "timeout_ms": 60000,
+        "token_limits": {
+          "max_tokens": 2000,
+          "max_cost": 0.20
+        }
+      }
+    },
+    {
+      "id": "billing_specialist",
+      "type": "agent",
+      "name": "Billing Expert",
+      "description": "Handle billing inquiries",
+      "position": {"x": 700, "y": 200},
+      "agent_id": "billing_agent",
+      "config": {
+        "timeout_ms": 45000
+      }
+    },
+    {
+      "id": "tech_support",
+      "type": "agent",
+      "name": "Technical Support",
+      "description": "Handle technical issues",
+      "position": {"x": 700, "y": 300},
+      "agent_id": "tech_support_agent"
+    },
+    {
+      "id": "general_support",
+      "type": "agent",
+      "name": "General Support",
+      "description": "Handle general inquiries",
+      "position": {"x": 700, "y": 400},
+      "agent_id": "general_support_agent"
+    },
+    {
+      "id": "quality_check",
+      "type": "decision",
+      "name": "Quality Gate",
+      "description": "Check if response needs approval",
+      "position": {"x": 1000, "y": 250},
+      "condition_branches": [
+        {
+          "name": "needs_approval",
+          "expression": "${intake_agent.urgency_level} >= 7",
+          "target": "supervisor_approval",
+          "priority": 1
+        }
+      ],
+      "default_target": "save_case"
+    },
+    {
+      "id": "supervisor_approval",
+      "type": "human_in_loop",
+      "name": "Supervisor Review",
+      "description": "Supervisor approval for high-priority cases",
+      "position": {"x": 1300, "y": 150},
+      "config": {
+        "human_config": {
+          "ui_template": "High-priority case requires approval:\n\nCustomer: ${global.customer_id}\nIssue: ${intake_agent.summary}\nProposed Response: ${previous_agent.response}",
+          "notification_channels": ["slack", "email"],
+          "timeout_ms": 7200000,
+          "escalation_after_ms": 3600000,
+          "approval_options": ["approve", "reject", "modify"]
+        }
+      }
+    },
+    {
+      "id": "save_case",
+      "type": "storage",
+      "name": "Save Case Record",
+      "description": "Store case in CRM",
+      "position": {"x": 1300, "y": 350},
+      "config": {
+        "storage_config": {
+          "operation": "SAVE",
+          "backend": "database",
+          "key": "support_case_${global.customer_id}_${workflow.execution_id}",
+          "versioning": true
+        }
+      }
+    },
+    {
+      "id": "error_handler",
+      "type": "error_handler",
+      "name": "Error Recovery",
+      "description": "Handle any workflow errors",
+      "position": {"x": 1000, "y": 500},
+      "error_types": ["timeout", "agent_failure", "approval_timeout"],
+      "fallback_node": "fallback_agent"
+    },
+    {
+      "id": "fallback_agent",
+      "type": "agent",
+      "name": "Fallback Response",
+      "description": "Provide fallback response on errors",
+      "position": {"x": 1300, "y": 500},
+      "agent_id": "fallback_agent"
+    }
+  ],
+  "edges": [
+    {
+      "id": "intake_to_routing",
+      "source_node_id": "intake_agent",
+      "target_node_id": "routing_decision",
+      "data_mapping": [
+        {
+          "source": "customer_sentiment",
+          "target": "sentiment"
+        },
+        {
+          "source": "urgency_level", 
+          "target": "urgency"
+        }
+      ]
+    },
+    {
+      "id": "route_to_escalation",
+      "source_node_id": "routing_decision",
+      "target_node_id": "escalation_agent",
+      "condition": "${routing_decision.decision} == 'high_priority'"
+    },
+    {
+      "id": "route_to_billing",
+      "source_node_id": "routing_decision", 
+      "target_node_id": "billing_specialist",
+      "condition": "${routing_decision.decision} == 'billing_issue'"
+    },
+    {
+      "id": "route_to_tech",
+      "source_node_id": "routing_decision",
+      "target_node_id": "tech_support", 
+      "condition": "${routing_decision.decision} == 'technical_issue'"
+    },
+    {
+      "id": "route_to_general",
+      "source_node_id": "routing_decision",
+      "target_node_id": "general_support",
+      "condition": "${routing_decision.decision} == 'default'"
+    },
+    {
+      "id": "escalation_to_quality",
+      "source_node_id": "escalation_agent",
+      "target_node_id": "quality_check"
+    },
+    {
+      "id": "billing_to_quality",
+      "source_node_id": "billing_specialist", 
+      "target_node_id": "quality_check"
+    },
+    {
+      "id": "tech_to_quality",
+      "source_node_id": "tech_support",
+      "target_node_id": "quality_check"
+    },
+    {
+      "id": "general_to_quality", 
+      "source_node_id": "general_support",
+      "target_node_id": "quality_check"
+    },
+    {
+      "id": "quality_to_approval",
+      "source_node_id": "quality_check",
+      "target_node_id": "supervisor_approval",
+      "condition": "${quality_check.decision} == 'needs_approval'"
+    },
+    {
+      "id": "quality_to_save",
+      "source_node_id": "quality_check",
+      "target_node_id": "save_case", 
+      "condition": "${quality_check.decision} == 'default'"
+    },
+    {
+      "id": "approval_to_save",
+      "source_node_id": "supervisor_approval",
+      "target_node_id": "save_case",
+      "condition": "${supervisor_approval.human_input.decision} == 'approve'"
+    },
+    {
+      "id": "error_to_fallback",
+      "source_node_id": "error_handler",
+      "target_node_id": "fallback_agent"
+    }
+  ],
+  "variables": [
+    {
+      "name": "customer_message",
+      "type": "string", 
+      "required": true,
+      "description": "The customer's message or inquiry"
+    },
+    {
+      "name": "customer_id",
+      "type": "string",
+      "required": true, 
+      "description": "Unique customer identifier"
+    },
+    {
+      "name": "priority_override",
+      "type": "number",
+      "required": false,
+      "default": 0,
+      "description": "Manual priority override (1-10)"
+    }
+  ],
+  "execution_mode": "sequential",
+  "global_error_handler": "error_handler",
+  "settings": {
+    "max_execution_time_ms": 300000,
+    "max_total_tokens": 5000,
+    "continue_on_error": false,
+    "enable_checkpoints": true
+  },
+  "monitoring": {
+    "metrics_enabled": true,
+    "capture_inputs": true,
+    "capture_outputs": true,
+    "sla_ms": 180000
+  },
+  "tags": ["customer-support", "example", "complete"]
+}

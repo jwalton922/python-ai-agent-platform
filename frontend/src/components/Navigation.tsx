@@ -1,7 +1,7 @@
 import React from 'react';
-import { Bot, Workflow, Activity, MessageCircle } from 'lucide-react';
+import { Bot, Workflow, Activity, MessageCircle, Zap } from 'lucide-react';
 
-type View = 'agents' | 'workflows' | 'activity' | 'chat';
+type View = 'agents' | 'workflows' | 'enhanced-workflows' | 'activity' | 'chat';
 
 interface NavigationProps {
   currentView: View;
@@ -11,7 +11,8 @@ interface NavigationProps {
 export const Navigation: React.FC<NavigationProps> = ({ currentView, onViewChange }) => {
   const navItems = [
     { id: 'agents' as View, label: 'Agents', icon: Bot },
-    { id: 'workflows' as View, label: 'Workflows', icon: Workflow },
+    { id: 'workflows' as View, label: 'Basic Workflows', icon: Workflow },
+    { id: 'enhanced-workflows' as View, label: 'Enhanced Workflows', icon: Zap },
     { id: 'chat' as View, label: 'Chat', icon: MessageCircle },
     { id: 'activity' as View, label: 'Activity', icon: Activity },
   ];

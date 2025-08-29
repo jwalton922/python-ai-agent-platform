@@ -13,12 +13,12 @@ class EmailTool(MockMCPTool):
     async def execute(self, params: Dict[str, Any]) -> Dict[str, Any]:
         action = params.get("action", "")
         
-        if action == "send":
+        if action in ["send", "send_email"]:
             return await self._send_email(params)
         elif action == "read":
             return await self._read_emails(params)
         else:
-            raise ValueError(f"Unknown email action: {action}")
+            raise ValueError(f"Unknown email action: {action}. Supported actions: send, send_email, read")
     
     async def _send_email(self, params: Dict[str, Any]) -> Dict[str, Any]:
         to = params.get("to", "")
@@ -64,8 +64,8 @@ class EmailTool(MockMCPTool):
                 "properties": {
                     "action": {
                         "type": "string",
-                        "enum": ["send", "read"],
-                        "description": "Action to perform"
+                        "enum": ["send", "send_email", "read"],
+                        "description": "Action to perform (send/send_email for sending, read for reading)"
                     },
                     "to": {
                         "type": "string",
